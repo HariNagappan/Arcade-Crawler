@@ -275,7 +275,7 @@ class GameViewModel: ViewModel() {
     fun ResetSnakes(){
         snake_list.clear()
         cur_snake_id=0
-        initial_snakes=private_initial_snakes
+        initial_snakes =private_initial_snakes
     }
 
     fun IncrementBulletCount(){
@@ -444,7 +444,7 @@ class GameViewModel: ViewModel() {
         //lst.reverse()
     }
     fun DecrementInitialSnakes(){
-        initial_snakes-=1
+        initial_snakes -=1
     }
     fun PauseGame(){
         paused=true

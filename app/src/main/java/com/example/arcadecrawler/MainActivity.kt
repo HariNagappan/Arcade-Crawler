@@ -122,7 +122,9 @@ fun StartGame(navController: NavHostController = rememberNavController()){
     val gameViewModel:GameViewModel = viewModel()
     NavHost(navController = navController, startDestination = Screens.HOME.name, modifier = Modifier.fillMaxSize().statusBarsPadding()){
         composable(Screens.HOME.name){
-            StartScreen(onsettingclick = {navController.navigate(Screens.SETTINGS.name)}, onplayclick = {navController.navigate(Screens.GAME.name)},gameViewModel=gameViewModel)
+            StartScreen(onsettingclick = {navController.navigate(Screens.SETTINGS.name)},
+                onplayclick = {navController.navigate(Screens.GAME.name)},
+                gameViewModel=gameViewModel)
             val context= LocalContext.current
             val sharedprefs=context.getSharedPreferences(shared_pref_filename, Context.MODE_PRIVATE)
             //val editor=sharedprefs.edit()
@@ -133,9 +135,12 @@ fun StartGame(navController: NavHostController = rememberNavController()){
         }
         composable(Screens.GAME.name) {
             MainGame(gameViewModel=gameViewModel,
-                onnavigateup = {navController.navigateUp()},
+                onnavigateup = {
+                    gameViewModel.ResetGame()
+                    navController.navigateUp()},
                 onnavigaterestart = {
                     navController.navigateUp()
+                    gameViewModel.ResetGame()
                     navController.navigate(Screens.GAME.name)
                 })
         }

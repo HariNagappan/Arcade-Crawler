@@ -89,10 +89,8 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
         )
         if(gameViewModel.paused && !gameViewModel.iswin && !gameViewModel.islost){
             PauseDialog(onnavigateup = {
-                gameViewModel.ResetGame()
-                onnavigateup() },
+                onnavigateup()},
                 onreset = {
-                    gameViewModel.ResetGame()
                     onnavigaterestart()
                 },
                 onresume = {
@@ -102,20 +100,18 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
         if(gameViewModel.iswin){
             WinDialog(
                 onnavigateup={
-                    gameViewModel.ResetGame()
                     onnavigateup()},
                 ondismiss = {gameViewModel.iswin=false},
                 onnavigaterestart={
-                    gameViewModel.ResetGame()
                     onnavigaterestart()},
                 cur_bullet_count = gameViewModel.total_bullet_count)
         }
         if(gameViewModel.islost){
             LoseDialog(
                 onnavigateup={onnavigateup()},
-                onreset={gameViewModel.ResetGame()},
                 ondismiss = {gameViewModel.islost=false},
-                onnavigaterestart={onnavigaterestart()},
+                onnavigaterestart={
+                    onnavigaterestart()},
                 cur_bullet_count = gameViewModel.total_bullet_count)
         }
     }
@@ -467,7 +463,7 @@ fun WinDialog(ondismiss:() ->Unit,onnavigateup: () -> Unit,onnavigaterestart: ()
     }
 }
 @Composable
-fun LoseDialog(onnavigateup: () -> Unit,onreset: () -> Unit, ondismiss:() ->Unit,onnavigaterestart: () -> Unit,cur_bullet_count:Int){
+fun LoseDialog(onnavigateup: () -> Unit, ondismiss:() ->Unit,onnavigaterestart: () -> Unit,cur_bullet_count:Int){
     Dialog(onDismissRequest = {}){
         Box(modifier=Modifier
             .size(300.dp,240.dp)
@@ -522,7 +518,6 @@ fun LoseDialog(onnavigateup: () -> Unit,onreset: () -> Unit, ondismiss:() ->Unit
                             .clip(CircleShape)
                             .clickable {
                                 ondismiss()
-                                onreset()
                                 onnavigateup()
                             }
                     )
@@ -534,7 +529,6 @@ fun LoseDialog(onnavigateup: () -> Unit,onreset: () -> Unit, ondismiss:() ->Unit
                             .clip(CircleShape)
                             .clickable {
                                 ondismiss()
-                                onreset()
                                 onnavigaterestart()
                             }
                     )
