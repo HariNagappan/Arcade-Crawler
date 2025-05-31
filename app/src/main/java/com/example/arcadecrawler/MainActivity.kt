@@ -281,7 +281,8 @@ fun AboutDialog(ondismiss:() ->Unit){
 fun SnakeDialog(ondismiss: () -> Unit,onplayclick: () -> Unit,gameViewModel: GameViewModel){
     val items = listOf(1,2,3,4,5,6,7,8,9,10)
     var expanded by remember { mutableStateOf(false) }
-    var selectedItem by remember { mutableStateOf(items[0].toString()) }
+    val sharedprefs= LocalContext.current.getSharedPreferences(shared_pref_filename,Context.MODE_PRIVATE)
+    var selectedItem by remember { mutableStateOf(sharedprefs.getInt("selecteditem",1).toString()) }
 
     Dialog(onDismissRequest = {ondismiss()}) {
         Box (
@@ -349,6 +350,9 @@ fun SnakeDialog(ondismiss: () -> Unit,onplayclick: () -> Unit,gameViewModel: Gam
 
                 Button(
                     onClick = {
+                        val editor=sharedprefs.edit()
+                        editor.putInt("selecteditem",selectedItem.toInt())
+                        editor.apply()
                         gameViewModel.SetSnakes(selectedItem.toInt()-1)
                         gameViewModel.ResetGame()
                         ondismiss()

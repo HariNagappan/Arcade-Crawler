@@ -153,7 +153,6 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
         bulletfireoffset=Offset(28.dp.toPx(),joystickcenter.y-bulletfirebitmap.height/2)
         originalguntopleft=Offset(180.dp.toPx(),joystickcenter.y-gunbitmap.height/2)
     }
-    val bulletfirearea= Rect(bulletfireoffset,Size(bulletfirebitmap.width.toFloat(),bulletfirebitmap.height.toFloat()))
 
     LaunchedEffect(originalguntopleft) {
         gameViewModel.UpdateGunPosition(originalguntopleft)
@@ -170,14 +169,16 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
     }
     LaunchedEffect(gameViewModel.initial_snakes) {
         Log.d("initialsnakes","${gameViewModel.initial_snakes}")
-        gameViewModel.AddSnake(
-            start_position = Offset(mushroombitmap.width.toFloat(), mushroombitmap.height.toFloat()),
-            nodewidth = snakenodebitmap.width.toFloat(),
-            movement = Movement.RIGHT,
-            nodeheight = snakenodebitmap.height.toFloat()
-        )
-        gameViewModel.gunbitmapwidth=gunbitmap.width.toFloat()
-        gameViewModel.gunbitmapheight=gunbitmap.height.toFloat()
+        if(gameViewModel.snake_list.isEmpty()){
+            gameViewModel.AddSnake(
+                start_position = Offset(mushroombitmap.width.toFloat(), mushroombitmap.height.toFloat()),
+                nodewidth = snakenodebitmap.width.toFloat(),
+                movement = Movement.RIGHT,
+                nodeheight = snakenodebitmap.height.toFloat()
+            )
+            gameViewModel.gunbitmapwidth=gunbitmap.width.toFloat()
+            gameViewModel.gunbitmapheight=gunbitmap.height.toFloat()
+        }
     }
 
     if(isdragging){
