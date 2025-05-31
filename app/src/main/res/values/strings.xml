@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Arcade Crawler</string>
+    <string name="about_message">
+         Welcome to Arcade Crawler – a thrilling retro-style arcade adventure where reflexes meet strategy!\n\n
+        ------------GAME RULES------------\n\n
+    🕹️ Take control of the battlefield as waves of centipedes crawl across the screen.\n\n
+    🍄 Dodge or destroy mushrooms that block your shots and change enemy paths.\n\n
+    🐍 Shoot the centipede to split it into smaller segments – but beware, each part moves on its own!\n\n
+    🕷️ Watch out for spiders! They devour mushrooms and add chaos to the arena.\n\n
+    💣 Blast through mushrooms – it takes 5 hits to destroy one.\n\n
+    ⚠️ Survive until the centipede reaches the bottom – but don’t let it touch your gun!\n\n
+    </string>
+</resources>
