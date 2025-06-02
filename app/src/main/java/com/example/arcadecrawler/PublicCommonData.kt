@@ -20,7 +20,13 @@ enum class Speed{
 }
 enum class Movement{
     LEFT,
-    RIGHT
+    RIGHT,
+    UP,
+    DOWN,
+    DIAGONAL_TOP_RIGHT,
+    DIAGONAL_TOP_LEFT,
+    DIAGONAL_BOTTOM_RIGHT,
+    DIAGONAL_BOTTOM_LEFT
 }
 enum class SnakeHierarchy{
     HEAD,
@@ -39,4 +45,8 @@ data class SnakeNode(
     var node_position: MutableState<Offset>,
     var previous: SnakeNode?=null
 )
-
+data class Spider(
+    var id:Int,
+    var spider_position:MutableState<Offset>,
+    var movement: MutableState<Movement>
+)

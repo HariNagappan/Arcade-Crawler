@@ -1,8 +1,10 @@
 package com.example.arcadecrawler
 
+import android.app.Activity
 import android.content.Context
 import android.icu.number.NumberFormatter.UnitWidth
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -152,6 +154,16 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
     var snake_dialog_visible by remember{mutableStateOf(false)}
     val context= LocalContext.current
     SetPreviousSpeeds(gameViewModel=gameViewModel,context=context)
+    SetPreviousBrightness(context=context,gameViewModel=gameViewModel)
+    SetBrightness(context=context, newbrightness = 0.7f)
+    if(gameViewModel.bgplayer==null) {
+        gameViewModel.SetMediaPlayer(context = context)
+    }
+    Log.d("arcadething","yess")
+    if(gameViewModel.IsBgPlayerInitialized() && !gameViewModel.bgplayer!!.isPlaying) {
+        gameViewModel.StartMusic()
+    }
+    SetPreviousBgVolume(gameViewModel=gameViewModel,context=context)
     Box(modifier=Modifier.fillMaxSize()){
         Image(
             painter = painterResource(R.drawable.homescreen),
@@ -195,10 +207,9 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
                         .size(110.dp)
                         .clip(CircleShape)
                         .clickable {
+                            gameViewModel.PlayButtonClick()
                             onsettingclick()
                         }
-
-
                 )
                 Image(
                     painter = painterResource(R.drawable.play),
@@ -208,6 +219,7 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
                         .size(110.dp)
                         .clip(CircleShape)
                         .clickable {
+                            gameViewModel.PlayButtonClick()
                             snake_dialog_visible=true
                         }
                         .align(Alignment.Center)
@@ -223,13 +235,15 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
                         .size(110.dp)
                         .clip(CircleShape)
                         .clickable {
+                            gameViewModel.PlayButtonClick()
                             about_dialog_visible=true
                         }
                 )
             }
         }
         if(about_dialog_visible){
-            AboutDialog(ondismiss = {about_dialog_visible=false})
+            AboutDialog(ondismiss = {about_dialog_visible=false},
+                gameViewModel=gameViewModel)
         }
         if(snake_dialog_visible){
             SnakeDialog(ondismiss = {snake_dialog_visible=false},onplayclick={onplayclick()},gameViewModel=gameViewModel)
@@ -237,7 +251,7 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
     }
 }
 @Composable
-fun AboutDialog(ondismiss:() ->Unit){
+fun AboutDialog(ondismiss:() ->Unit,gameViewModel: GameViewModel){
     Dialog(onDismissRequest = {ondismiss()}) {
             Box(modifier=Modifier.size(350.dp,400.dp).background(color= colorResource(R.color.blueish), shape = RoundedCornerShape(33.dp))) {
                 Image(
@@ -249,6 +263,7 @@ fun AboutDialog(ondismiss:() ->Unit){
                         .padding(8.dp)
                         .clip(CircleShape)
                         .clickable {
+                            gameViewModel.PlayButtonClick()
                             ondismiss()
                         }
                 )
@@ -308,6 +323,7 @@ fun SnakeDialog(ondismiss: () -> Unit,onplayclick: () -> Unit,gameViewModel: Gam
                             .align(Alignment.TopEnd)
                             .clip(CircleShape)
                             .clickable {
+                                gameViewModel.PlayButtonClick()
                                 ondismiss()
                             }
                     )
@@ -340,6 +356,7 @@ fun SnakeDialog(ondismiss: () -> Unit,onplayclick: () -> Unit,gameViewModel: Gam
                             DropdownMenuItem(
                                 text = { Text(element.toString()) },
                                 onClick = {
+                                    gameViewModel.PlayButtonClick()
                                     selectedItem = element.toString()
                                     expanded = false
                                 }
@@ -347,9 +364,9 @@ fun SnakeDialog(ondismiss: () -> Unit,onplayclick: () -> Unit,gameViewModel: Gam
                         }
                     }
                 }
-
                 Button(
                     onClick = {
+                        gameViewModel.PlayButtonClick()
                         val editor=sharedprefs.edit()
                         editor.putInt("selecteditem",selectedItem.toInt())
                         editor.apply()
@@ -372,4 +389,15 @@ fun SnakeDialog(ondismiss: () -> Unit,onplayclick: () -> Unit,gameViewModel: Gam
             }
         }
     }
+}
+fun SetBrightness(context: Context,newbrightness:Float){
+    val activity = context as Activity
+    val layoutParams = activity.window.attributes
+    layoutParams.screenBrightness=newbrightness
+    activity.window.attributes=layoutParams
+}
+fun SetPreviousBrightness(context: Context,gameViewModel: GameViewModel){
+    val prefs=context.getSharedPreferences(shared_pref_filename,Context.MODE_PRIVATE)
+    val brightness=prefs.getFloat("screenbrightness",0.7f)
+    gameViewModel.cur_brightness=brightness
 }

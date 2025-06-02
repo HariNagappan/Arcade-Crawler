@@ -1,5 +1,8 @@
 package com.example.arcadecrawler
 
+import android.content.Context
+import android.media.MediaPlayer
+import android.provider.MediaStore.Audio.Media
 import android.util.Log
 import androidx.annotation.Px
 import androidx.compose.runtime.MutableState
@@ -14,6 +17,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.max
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlin.random.Random
@@ -47,10 +51,23 @@ class GameViewModel: ViewModel() {
         private set
     var snakes_to_remove= mutableListOf<Snake>()
 
+//    var spider_count =0
+//    var should_spawn_spider by mutableStateOf(true)
+//    val spider_list = mutableStateListOf<Spider>()
+//    val spider_velocity by mutableStateOf(GetSnakeVelocity()*2)
+//    var spider_spawn_delay = 4f
+//    var spider_start_position=Offset.Zero
+
     var org_mushroom_count by mutableStateOf(10)
     var cur_mushroom_id = 0
         private set
     val mushroom_list = mutableStateListOf<Mushroom>()
+
+    var bgplayer:MediaPlayer?=null
+    lateinit var buttonplayer:MediaPlayer
+    var cur_volume by mutableStateOf(1f)
+
+    var cur_brightness by mutableStateOf(0.7f)
 
     var iswin by mutableStateOf(false)
     var islost by mutableStateOf(false)
@@ -63,23 +80,18 @@ class GameViewModel: ViewModel() {
     fun UpdateGunPosition(newOffset: Offset) {
         gun_position = newOffset
     }
-
     fun SetJoystickThumbPosition(newOffset: Offset) {
         joyStick = joyStick.copy(thumbpositon = newOffset)
     }
-
     fun SetInnerRadius(innerradius: Float) {
         joyStick.innerradius = innerradius
     }
-
     fun SetOuterRadius(outerradius: Float) {
         joyStick.outerradius = outerradius
     }
-
     fun GetJoystickThumbPosition(): Offset {
         return joyStick.thumbpositon
     }
-
     fun GetGunVelocityFactor(): Float {
         if (gunvelocityfactor == Speed.SLOW) {
             return 0.1f
@@ -88,7 +100,6 @@ class GameViewModel: ViewModel() {
         }
         return 0.3f
     }
-
     fun SetGunVelocityFactor(newfactor: Speed) {
         gunvelocityfactor = newfactor
     }
@@ -97,7 +108,6 @@ class GameViewModel: ViewModel() {
         initial_snakes = new_snakes
         private_initial_snakes=initial_snakes
     }
-
     fun AddSnake(
         start_position: Offset,
         length: Int = snake_length,
@@ -138,7 +148,6 @@ class GameViewModel: ViewModel() {
         IncrementSnakeId()
         Log.d("snakelist","$snake_list")
     }
-
     fun IncrementSnakeId(){
         cur_snake_id+=1
     }
@@ -278,6 +287,47 @@ class GameViewModel: ViewModel() {
         initial_snakes =private_initial_snakes
     }
 
+//    fun SetSpiderStartPosition(offset: Offset){
+//        spider_start_position=offset
+//    }
+//    fun AddSpider(movement: Movement){
+//        //always do SetSpiderStartPosition before this
+//        spider_list.add(
+//            Spider(
+//                id=spider_count,
+//            spider_position = mutableStateOf(spider_start_position),
+//                movement = mutableStateOf(movement),
+//        )
+//        )
+//        IncrementSpiderCount()
+//        should_spawn_spider=false
+//    }
+//    fun MoveSpiders(){
+//        spider_list.forEach(){spider->
+//            MoveSpider(spider=spider)
+//        }
+//    }
+//    private fun MoveSpider(spider: Spider){
+//        spider.spider_position.value +=GetRequiredOffset(movement = spider.movement.value, speed = GetSpiderVelocity())
+//    }
+//    fun RemoveSpider(id:Int){
+//        spider_list.removeIf { it.id==id }
+//        viewModelScope.launch {
+//            delay(spider_spawn_delay.toLong())
+//            should_spawn_spider=true
+//            ChangeSpawnDelay(start=2,end=10)
+//        }
+//    }
+//    fun IncrementSpiderCount(){
+//        spider_count+=1
+//    }
+//    fun GetSpiderVelocity():Float{
+//        return spider_velocity
+//    }
+//    fun ChangeSpawnDelay(start:Int,end:Int){
+//        spider_spawn_delay=Math.random().toFloat()*(end-start) + start
+//    }
+
     fun IncrementBulletCount(){
         bullet_count+=1
         total_bullet_count+=1
@@ -366,6 +416,9 @@ class GameViewModel: ViewModel() {
         bullet_list.clear()
         ResetBulletCount()
     }
+    fun DecrementInitialSnakes(){
+        initial_snakes -=1
+    }
 
     fun RemoveRequiredMushrooms(){
         mushroom_list.removeIf{it.health<=0}
@@ -443,11 +496,41 @@ class GameViewModel: ViewModel() {
         }
         //lst.reverse()
     }
-    fun DecrementInitialSnakes(){
-        initial_snakes -=1
+
+    fun SetMediaPlayer(context:Context){
+        bgplayer=MediaPlayer.create(context,R.raw.bgmusic)
+        buttonplayer=MediaPlayer.create(context,R.raw.buttonclick)
     }
+    fun IsBgPlayerInitialized():Boolean{
+        return bgplayer!=null
+    }
+    fun StartMusic(){
+        if(bgplayer!=null && !bgplayer!!.isPlaying)
+        {
+            bgplayer!!.start()
+            bgplayer!!.setVolume(cur_volume,cur_volume)
+            bgplayer!!.isLooping=true
+        }
+    }
+    fun SetBgVolume(newvolume:Float){
+        cur_volume=newvolume
+        bgplayer!!.setVolume(newvolume,newvolume)
+    }
+    fun PlayButtonClick(){
+        if(buttonplayer.isPlaying){
+            buttonplayer.stop()
+            buttonplayer.prepare()
+        }
+        buttonplayer.start()
+    }
+
+    fun SetBrightness(newbrightness:Float){
+        cur_brightness=newbrightness
+    }
+
     fun PauseGame(){
         paused=true
+        //PauseMusic()
     }
     fun ResumeGame(){
         paused=false
@@ -460,5 +543,39 @@ class GameViewModel: ViewModel() {
         iswin=false
         islost=false
         paused=false
+    }
+
+    fun PickRandomMovement():Movement{
+        val lst= listOf(Movement.UP,Movement.DOWN,Movement.RIGHT,Movement.LEFT,Movement.DIAGONAL_TOP_LEFT,Movement.DIAGONAL_TOP_RIGHT,Movement.DIAGONAL_BOTTOM_LEFT,Movement.DIAGONAL_BOTTOM_RIGHT)
+        return lst.random()
+    }
+    fun GetRequiredOffset(movement: Movement,speed:Float):Offset{
+        var newoff=Offset.Zero
+        if(movement==Movement.UP){
+            newoff= Offset(0f,-speed)
+        }
+        else if(movement==Movement.DIAGONAL_TOP_RIGHT){
+            newoff=Offset(speed,-speed)
+        }
+        else if(movement==Movement.RIGHT){
+            newoff=Offset(speed,0f)
+        }
+        else if(movement==Movement.DIAGONAL_BOTTOM_RIGHT){
+            newoff=Offset(speed,speed)
+        }
+        else if(movement==Movement.DOWN){
+            newoff=Offset(0f,speed)
+        }
+        else if(movement==Movement.DIAGONAL_BOTTOM_LEFT){
+            newoff=Offset(-speed,-speed)
+        }
+        else if(movement==Movement.LEFT){
+            newoff=Offset(-speed,0f)
+        }
+        else if(movement==Movement.DIAGONAL_TOP_LEFT){
+            newoff=Offset(-speed,speed)
+        }
+
+        return newoff
     }
 }

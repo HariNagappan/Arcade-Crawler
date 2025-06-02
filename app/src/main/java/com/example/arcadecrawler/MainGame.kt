@@ -1,5 +1,6 @@
 package com.example.arcadecrawler
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.annotation.Px
@@ -28,6 +29,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +70,7 @@ import androidx.compose.ui.window.Dialog
 
 @Composable
 fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestart:()->Unit){
+
     Box(modifier= Modifier.fillMaxSize()){
         MainCanvas(gameViewModel=gameViewModel,
             onnavigateup={onnavigateup},
@@ -84,6 +88,7 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
                 .padding(8.dp)
                 .clip(CircleShape)
                 .clickable {
+                    gameViewModel.PlayButtonClick()
                     gameViewModel.PauseGame()
                 }
         )
@@ -95,7 +100,8 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
                 },
                 onresume = {
                     gameViewModel.ResumeGame()
-            })
+            },
+                gameViewModel = gameViewModel)
         }
         if(gameViewModel.iswin){
             WinDialog(
@@ -104,7 +110,8 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
                 ondismiss = {gameViewModel.iswin=false},
                 onnavigaterestart={
                     onnavigaterestart()},
-                cur_bullet_count = gameViewModel.total_bullet_count)
+                cur_bullet_count = gameViewModel.total_bullet_count,
+                gameViewModel = gameViewModel)
         }
         if(gameViewModel.islost){
             LoseDialog(
@@ -112,7 +119,8 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
                 ondismiss = {gameViewModel.islost=false},
                 onnavigaterestart={
                     onnavigaterestart()},
-                cur_bullet_count = gameViewModel.total_bullet_count)
+                cur_bullet_count = gameViewModel.total_bullet_count,
+                gameViewModel=gameViewModel)
         }
     }
 }
@@ -127,6 +135,7 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
     val mushroombitmap=ImageBitmap.imageResource(R.drawable.mushroom)
     val snakeheadbitmap=ImageBitmap.imageResource(R.drawable.snakehead)
     val snakenodebitmap=ImageBitmap.imageResource(R.drawable.snake)
+    val spiderbitmap=ImageBitmap.imageResource(R.drawable.spider)
 
 
     var joystickcenter = with(localdensity){Offset(320.dp.toPx(),660.dp.toPx())}
@@ -171,7 +180,8 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
         Log.d("initialsnakes","${gameViewModel.initial_snakes}")
         if(gameViewModel.snake_list.isEmpty()){
             gameViewModel.AddSnake(
-                start_position = Offset(mushroombitmap.width.toFloat(), mushroombitmap.height.toFloat()),
+                //start_position = Offset(mushroombitmap.width.toFloat(), mushroombitmap.height.toFloat()),
+                start_position = Offset(0f,-snakenodebitmap.height.toFloat()*1.2f),
                 nodewidth = snakenodebitmap.width.toFloat(),
                 movement = Movement.RIGHT,
                 nodeheight = snakenodebitmap.height.toFloat()
@@ -180,6 +190,17 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
             gameViewModel.gunbitmapheight=gunbitmap.height.toFloat()
         }
     }
+//    LaunchedEffect(gameViewModel.should_spawn_spider) {
+//        if (gameViewModel.should_spawn_spider) {
+//            gameViewModel.SetSpiderStartPosition(
+//                Offset(
+//                    0f,
+//                    joystickcenter.y - gameViewModel.joyStick.outerradius * 2f
+//                )
+//            )
+//            //gameViewModel.AddSpider(movement = Movement.DIAGONAL_BOTTOM_RIGHT)
+//        }
+//    }
 
     if(isdragging){
         thumbmoveoffset=thumboffset-joystickcenter
@@ -188,6 +209,8 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
         gameViewModel.UpdateGunPosition(newgunoffset)
     }
     gameViewModel.SetJoystickThumbPosition(thumboffset)
+
+    SetBrightness(context=context, newbrightness = gameViewModel.cur_brightness)
     Canvas(modifier=Modifier
         .then(modifier)
         .onSizeChanged { size:IntSize->
@@ -256,7 +279,8 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
         mushroomlist.forEach { mushroom->
             drawImage(
                 image = mushroombitmap,
-                topLeft = mushroom.mushroom_position
+                topLeft = mushroom.mushroom_position,
+                alpha = mushroom.health/5f
             )
         }
 
@@ -281,6 +305,13 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
             maxy=canvas_size.height.toFloat(),
             step_down_height = snakeheadbitmap.width.toFloat()*1.2f
         )
+//        gameViewModel.spider_list.forEach{ spider->
+//            drawImage(
+//                image=spiderbitmap,
+//                topLeft = spider.spider_position.value
+//            )
+//        }
+        //gameViewModel.MoveSpiders()
     }
     Box(modifier=Modifier
         .offset {
@@ -329,10 +360,20 @@ fun BlackWhiteGrid(cols:Int=20,modifier:Modifier){
     }
 }
 @Composable
-fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit){
-    Dialog(onDismissRequest = {onresume()}){
+fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit,gameViewModel: GameViewModel){
+    var bgsliderpos by remember { mutableStateOf(gameViewModel.cur_volume) }
+    var brightnesssliderpos by remember { mutableStateOf(gameViewModel.cur_brightness) }
+    val context=LocalContext.current
+    Dialog(onDismissRequest = {
+        val prefs= context.getSharedPreferences(
+            shared_pref_filename, Context.MODE_PRIVATE)
+        val edit=prefs.edit()
+        edit.putFloat("bgvolume",bgsliderpos)
+        edit.putFloat("screenbrightness",brightnesssliderpos)
+        edit.apply()
+        onresume()}){
         Box(modifier=Modifier
-            .size(300.dp,120.dp)
+            .size(300.dp,220.dp)
             .border(width=4.dp,color=Color.Black,shape=RoundedCornerShape(32.dp))
             .background(color= colorResource(R.color.blueish),shape=RoundedCornerShape(32.dp))) {
 
@@ -347,6 +388,45 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit){
                     .align(Alignment.TopCenter)
                     .padding(8.dp)
             )
+            Column(horizontalAlignment = Alignment.CenterHorizontally,modifier=Modifier.align(Alignment.Center)) {
+                Row(verticalAlignment = Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(start=4.dp,end=4.dp)) {
+                    Text(
+                        text = "Music Sound",
+                        textAlign = TextAlign.Center,
+                        color= colorResource(R.color.dark_gray),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Slider(
+                        value = bgsliderpos,
+                        onValueChange = {
+                            bgsliderpos = it
+                            gameViewModel.SetBgVolume(it)
+                        },
+                        valueRange = 0f..1f,
+                        modifier = Modifier
+                            .weight(1f)
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Screen Brightness",
+                        textAlign = TextAlign.Center,
+                        color= colorResource(R.color.dark_gray),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Slider(
+                        value = brightnesssliderpos,
+                        onValueChange = {
+                            brightnesssliderpos = it
+                            SetBrightness(context=context, newbrightness = it)
+                            gameViewModel.SetBrightness(newbrightness = it)
+                                        },
+                        valueRange = 0.1f..1f,
+                        modifier = Modifier
+                            .weight(1f)
+                    )
+                }
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
@@ -359,6 +439,13 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit){
                         .padding(8.dp)
                         .clip(CircleShape)
                         .clickable {
+                            gameViewModel.PlayButtonClick()
+                            val prefs= context.getSharedPreferences(
+                                shared_pref_filename, Context.MODE_PRIVATE)
+                            val edit=prefs.edit()
+                            edit.putFloat("bgvolume",bgsliderpos)
+                            edit.putFloat("screenbrightness",brightnesssliderpos)
+                            edit.apply()
                             onnavigateup()
                         }
                 )
@@ -370,6 +457,13 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit){
                         .padding(8.dp)
                         .clip(CircleShape)
                         .clickable {
+                            gameViewModel.PlayButtonClick()
+                            val prefs= context.getSharedPreferences(
+                                shared_pref_filename, Context.MODE_PRIVATE)
+                            val edit=prefs.edit()
+                            edit.putFloat("bgvolume",bgsliderpos)
+                            edit.putFloat("screenbrightness",brightnesssliderpos)
+                            edit.apply()
                             onreset()
                         }
                 )
@@ -381,6 +475,13 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit){
                         .padding(8.dp)
                         .clip(CircleShape)
                         .clickable {
+                            gameViewModel.PlayButtonClick()
+                            val prefs= context.getSharedPreferences(
+                                shared_pref_filename, Context.MODE_PRIVATE)
+                            val edit=prefs.edit()
+                            edit.putFloat("bgvolume",bgsliderpos)
+                            edit.putFloat("screenbrightness",brightnesssliderpos)
+                            edit.apply()
                             onresume()
                         }
                 )
@@ -389,7 +490,7 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit){
     }
 }
 @Composable
-fun WinDialog(ondismiss:() ->Unit,onnavigateup: () -> Unit,onnavigaterestart: () -> Unit,cur_bullet_count:Int){
+fun WinDialog(ondismiss:() ->Unit,onnavigateup: () -> Unit,onnavigaterestart: () -> Unit,cur_bullet_count:Int,gameViewModel: GameViewModel){
     Dialog(onDismissRequest = {}){
         Box(modifier=Modifier
             .size(300.dp,240.dp)
@@ -443,6 +544,7 @@ fun WinDialog(ondismiss:() ->Unit,onnavigateup: () -> Unit,onnavigaterestart: ()
                         modifier=Modifier
                             .clip(CircleShape)
                             .clickable {
+                                gameViewModel.PlayButtonClick()
                                 ondismiss()
                                 onnavigateup()
                             }
@@ -454,6 +556,7 @@ fun WinDialog(ondismiss:() ->Unit,onnavigateup: () -> Unit,onnavigaterestart: ()
                         modifier=Modifier
                             .clip(CircleShape)
                             .clickable {
+                                gameViewModel.PlayButtonClick()
                                 ondismiss()
                                 onnavigaterestart()
                             }
@@ -464,7 +567,7 @@ fun WinDialog(ondismiss:() ->Unit,onnavigateup: () -> Unit,onnavigaterestart: ()
     }
 }
 @Composable
-fun LoseDialog(onnavigateup: () -> Unit, ondismiss:() ->Unit,onnavigaterestart: () -> Unit,cur_bullet_count:Int){
+fun LoseDialog(onnavigateup: () -> Unit, ondismiss:() ->Unit,onnavigaterestart: () -> Unit,cur_bullet_count:Int,gameViewModel: GameViewModel){
     Dialog(onDismissRequest = {}){
         Box(modifier=Modifier
             .size(300.dp,240.dp)
@@ -518,6 +621,7 @@ fun LoseDialog(onnavigateup: () -> Unit, ondismiss:() ->Unit,onnavigaterestart: 
                         modifier=Modifier
                             .clip(CircleShape)
                             .clickable {
+                                gameViewModel.PlayButtonClick()
                                 ondismiss()
                                 onnavigateup()
                             }
@@ -529,6 +633,7 @@ fun LoseDialog(onnavigateup: () -> Unit, ondismiss:() ->Unit,onnavigaterestart: 
                         modifier=Modifier
                             .clip(CircleShape)
                             .clickable {
+                                gameViewModel.PlayButtonClick()
                                 ondismiss()
                                 onnavigaterestart()
                             }

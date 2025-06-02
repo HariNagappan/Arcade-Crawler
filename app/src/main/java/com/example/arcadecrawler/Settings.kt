@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,8 +53,9 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
     var gunselectedoption by remember{mutableStateOf(sharedprefs.getInt("gunselectedoption",speed_options.indexOf(gameViewModel.gunvelocityfactor)))}
     var bulletselectedoption by remember{mutableStateOf(sharedprefs.getInt("bulletselectedoption", speed_options.indexOf(gameViewModel.bulletvelocity)))}
     var snakeselectedoption by remember{mutableStateOf(sharedprefs.getInt("snakeselectedoption", speed_options.indexOf(gameViewModel.snakevelocityfactor)))}
-    
-    Column(modifier= Modifier.fillMaxSize().background(color= colorResource(R.color.ivory)).padding(top=32.dp)){
+
+    var sliderpos by remember { mutableStateOf(gameViewModel.cur_volume) }
+    Column(horizontalAlignment = Alignment.CenterHorizontally ,modifier= Modifier.fillMaxSize().background(color= colorResource(R.color.ivory)).padding(top=32.dp)){
         Box(modifier=Modifier.fillMaxWidth()){
             Image(
                 painter= painterResource(R.drawable.back),
@@ -64,6 +66,9 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                     .size(48.dp)
                     .clip(CircleShape)
                     .clickable {
+                        gameViewModel.PlayButtonClick()
+                        editor.putFloat("bgvolume",sliderpos)
+                        editor.apply()
                         onnavigateup()
                     }
 
@@ -103,6 +108,7 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                             shape = RoundedCornerShape(20.dp)
                         )
                         .clickable {
+                            gameViewModel.PlayButtonClick()
                             gunselectedoption = idx
                         }
                         .padding(vertical = 4.dp, horizontal = 8.dp),
@@ -134,6 +140,7 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                             shape = RoundedCornerShape(20.dp)
                         )
                         .clickable {
+                            gameViewModel.PlayButtonClick()
                             bulletselectedoption = idx
                         }
                         .padding(vertical = 4.dp, horizontal = 8.dp),
@@ -165,6 +172,7 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                             shape = RoundedCornerShape(20.dp)
                         )
                         .clickable {
+                            gameViewModel.PlayButtonClick()
                             snakeselectedoption = idx
                         }
                         .padding(vertical = 4.dp, horizontal = 8.dp),
@@ -173,14 +181,33 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
             }
         }
         Spacer(modifier=Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,modifier=Modifier.fillMaxWidth()){
-            Image(
+        Row(verticalAlignment = Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(4.dp)) {
+            Text(
+                text = "Music Sound",
+                textAlign = TextAlign.Center,
+                color= colorResource(R.color.dark_gray),
+                fontWeight = FontWeight.Bold
+            )
+            Slider(
+                value = sliderpos,
+                onValueChange = {
+                    sliderpos = it
+                    gameViewModel.SetBgVolume(it)
+                },
+                valueRange = 0f..1f,
+                modifier = Modifier
+                    .weight(1f)
+            )
+        }
+        Spacer(modifier=Modifier.height(16.dp))
+        Image(
                 painter= painterResource(R.drawable.tick),
                 contentDescription = null,
                 modifier=Modifier
                     .padding(8.dp)
                     .clip(RoundedCornerShape(34.dp))
                     .clickable{
+                        gameViewModel.PlayButtonClick()
                         gameViewModel.SetSnakeVelocityFactor(speed_options[snakeselectedoption])
                         gameViewModel.SetBulletVelocityFactor(speed_options[bulletselectedoption])
                         gameViewModel.SetGunVelocityFactor(speed_options[gunselectedoption])
@@ -188,12 +215,11 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                         editor.putInt("snakeselectedoption",snakeselectedoption)
                         editor.putInt("bulletselectedoption",bulletselectedoption)
                         editor.putInt("gunselectedoption",gunselectedoption)
+                        editor.putFloat("bgvolume",sliderpos)
                         editor.apply()
                         onnavigateup()
                     }
             )
-
-        }
     }
 
 }
@@ -206,4 +232,9 @@ fun SetPreviousSpeeds(gameViewModel: GameViewModel,context: Context){
     gameViewModel.SetSnakeVelocityFactor(speed_options[snakeselectedoption])
     gameViewModel.SetGunVelocityFactor(speed_options[gunselectedoption])
     gameViewModel.SetBulletVelocityFactor(speed_options[bulletselectedoption])
+}
+fun SetPreviousBgVolume(gameViewModel: GameViewModel,context: Context){
+    val prefs=context.getSharedPreferences(shared_pref_filename,Context.MODE_PRIVATE)
+    val vol=prefs.getFloat("bgvolume",1f)
+    gameViewModel.SetBgVolume(vol)
 }
