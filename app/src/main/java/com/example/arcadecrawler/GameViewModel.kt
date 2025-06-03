@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.max
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlin.random.Random
@@ -51,12 +52,15 @@ class GameViewModel: ViewModel() {
         private set
     var snakes_to_remove= mutableListOf<Snake>()
 
-//    var spider_count =0
-//    var should_spawn_spider by mutableStateOf(true)
-//    val spider_list = mutableStateListOf<Spider>()
-//    val spider_velocity by mutableStateOf(GetSnakeVelocity()*2)
-//    var spider_spawn_delay = 4f
-//    var spider_start_position=Offset.Zero
+    var spider_count =0
+    var should_spawn_spider by mutableStateOf(true)
+    val spider_list = mutableStateListOf<Spider>()
+    val spider_velocity by mutableStateOf(6f)
+    var spider_spawn_delay = 5000f
+    var spider_start_position=Offset.Zero
+    var spiderbitmapwidth=0f
+    var spiderbitmapheight=0f
+
 
     var org_mushroom_count by mutableStateOf(10)
     var cur_mushroom_id = 0
@@ -75,6 +79,7 @@ class GameViewModel: ViewModel() {
     private var private_initial_snakes=0
     private var mushroomwidth:Float=0f
     private var mushroomheight:Float=0f
+    private var spiderdelaythread:Job?=null
 
 
     fun UpdateGunPosition(newOffset: Offset) {
@@ -287,46 +292,105 @@ class GameViewModel: ViewModel() {
         initial_snakes =private_initial_snakes
     }
 
-//    fun SetSpiderStartPosition(offset: Offset){
-//        spider_start_position=offset
-//    }
-//    fun AddSpider(movement: Movement){
-//        //always do SetSpiderStartPosition before this
-//        spider_list.add(
-//            Spider(
-//                id=spider_count,
-//            spider_position = mutableStateOf(spider_start_position),
-//                movement = mutableStateOf(movement),
-//        )
-//        )
-//        IncrementSpiderCount()
-//        should_spawn_spider=false
-//    }
-//    fun MoveSpiders(){
-//        spider_list.forEach(){spider->
-//            MoveSpider(spider=spider)
-//        }
-//    }
-//    private fun MoveSpider(spider: Spider){
-//        spider.spider_position.value +=GetRequiredOffset(movement = spider.movement.value, speed = GetSpiderVelocity())
-//    }
-//    fun RemoveSpider(id:Int){
-//        spider_list.removeIf { it.id==id }
-//        viewModelScope.launch {
-//            delay(spider_spawn_delay.toLong())
-//            should_spawn_spider=true
-//            ChangeSpawnDelay(start=2,end=10)
-//        }
-//    }
-//    fun IncrementSpiderCount(){
-//        spider_count+=1
-//    }
-//    fun GetSpiderVelocity():Float{
-//        return spider_velocity
-//    }
-//    fun ChangeSpawnDelay(start:Int,end:Int){
-//        spider_spawn_delay=Math.random().toFloat()*(end-start) + start
-//    }
+    fun SetSpiderStartPosition(offset: Offset){
+        spider_start_position=offset
+    }
+    fun AddSpider(movement: Movement,bitmap_width:Float,bitmap_height: Float){
+        //always do SetSpiderStartPosition before this
+        spiderdelaythread= viewModelScope.launch {
+            delay(spider_spawn_delay.toLong())
+            should_spawn_spider = true
+            ChangeSpawnDelay(start = 2000, end = 10000)
+            spider_list.add(
+                Spider(
+                    id = spider_count,
+                    spider_position = mutableStateOf(spider_start_position),
+                    movement = mutableStateOf(movement),
+                    bitmap_width = bitmap_width,
+                    bitmap_height = bitmap_height
+                )
+            )
+            spiderbitmapwidth = bitmap_width
+            spiderbitmapheight = bitmap_height
+            IncrementSpiderCount()
+            should_spawn_spider = false
+        }
+    }
+    fun MoveSpiders(leastx: Float,maxx: Float,leasty: Float, maxy: Float){
+        spider_list.forEach(){spider->
+            MoveSpider(spider=spider ,maxy = maxy)
+        }
+        RemoveRequiredSpiders(leastx=leastx,maxx=maxx,leasty=leasty)
+    }
+    private fun MoveSpider(spider: Spider,maxy: Float){
+        spider.spider_position.value +=GetRequiredOffset(movement = spider.movement.value, speed = GetSpiderVelocity())
+        if(spider.spider_position.value.y+spider.bitmap_height>=maxy){
+            spider.movement.value=PickRandomMovement(lst = listOf(Movement.UP,Movement.DIAGONAL_TOP_LEFT,Movement.DIAGONAL_TOP_RIGHT))
+        }
+        if(IsOverlapping(startA = spider.spider_position.value, widthA = spider.bitmap_width, heightA = spider.bitmap_height, startB = gun_position, widthB = gunbitmapwidth, heightB = gunbitmapheight)){
+            islost=true
+            paused=true
+        }
+        val colliding_mushroom=mushroom_list.find { IsOverlapping(startA=spider.spider_position.value, widthA = spider.bitmap_width, heightA = spider.bitmap_height, startB = it.mushroom_position, widthB = it.bitmap_width, heightB = it.bitmap_height) }
+        if(colliding_mushroom!=null){
+            val delete_mushroom=listOf(false,true).random()
+            if(delete_mushroom==false) {
+                var newmovement = PickRandomMovement(all_movements)
+                while (IsOverlapping(
+                        startA = spider.spider_position.value + GetRequiredOffset(
+                            movement = newmovement,
+                            speed = spider_velocity
+                        ),
+                        widthA = spider.bitmap_width,
+                        heightA = spider.bitmap_height,
+                        startB = colliding_mushroom.mushroom_position,
+                        widthB = colliding_mushroom.bitmap_width,
+                        heightB = colliding_mushroom.bitmap_height
+                    )
+                ) {
+                    newmovement = PickRandomMovement(all_movements)
+                }
+                spider.movement.value = newmovement
+            }
+            else{
+                mushroom_list.remove(colliding_mushroom)
+            }
+        }
+    }
+    fun RemoveRequiredSpiders(leastx: Float,maxx: Float,leasty: Float){
+        val spiders_to_remove = mutableListOf<Int>()
+        spider_list.forEach{
+            if(it.spider_position.value.x<=leastx ||  it.spider_position.value.x+spiderbitmapwidth >=maxx || it.spider_position.value.y<=leasty){
+                spiders_to_remove.add(it.id)
+            }
+        }
+        for(id in spiders_to_remove){
+            RemoveSpider(id=id)
+        }
+
+    }
+    fun RemoveSpider(id:Int){
+        spider_list.removeIf { it.id==id }
+        should_spawn_spider=true
+    }
+    fun IncrementSpiderCount(){
+        spider_count+=1
+    }
+    fun GetSpiderVelocity():Float{
+        if(paused){
+            return 0f
+        }
+        return spider_velocity
+    }
+    fun ChangeSpawnDelay(start:Int,end:Int){
+        spider_spawn_delay=Math.random().toFloat()*(end-start) + start
+    }
+    fun ResetSpiderStuff(){
+        spider_list.clear()
+        spider_count=0
+        should_spawn_spider=true
+        spiderdelaythread?.cancel()
+    }
 
     fun IncrementBulletCount(){
         bullet_count+=1
@@ -353,6 +417,7 @@ class GameViewModel: ViewModel() {
     fun RemoveRequiredBullets(){
         val bullets_to_remove= mutableListOf<Int>()
         val snake_nodes_to_remove= mutableListOf<Pair<Snake,SnakeNode>>()
+        val spiders_to_remove=mutableListOf<Int>()
         bullet_list.removeIf{ it.bullet_position.value.y<=0f}
         for(i in 0 until mushroom_list.size){
             if(bullet_list.removeIf{IsOverlapping(
@@ -375,14 +440,22 @@ class GameViewModel: ViewModel() {
                 }
             }
         }
-        if(snake_nodes_to_remove.isEmpty()==false){
-            Log.d("geterrordebug","$bullets_to_remove,$snake_nodes_to_remove")
+        for(spider in spider_list){
+            val coincide_bullet=bullet_list.find { IsOverlapping(startA = it.bullet_position.value, widthA = it.bitmap_width, heightA=it.bitmap_height, startB = spider.spider_position.value, widthB = spider.bitmap_width, heightB = spider.bitmap_height) }
+            if(coincide_bullet!=null){
+                bullets_to_remove.add(coincide_bullet.id)
+                spiders_to_remove.add(spider.id)
+            }
         }
         bullet_list.removeIf{ it.id in bullets_to_remove}
+        for(spider_remove in spiders_to_remove){
+            RemoveSpider(id=spider_remove)
+        }
         for(pair in snake_nodes_to_remove){
             RemoveSnakeNode(snake=pair.first, snakeNode = pair.second)
         }
         RemoveRequiredMushrooms()
+
         if(snake_list.isEmpty() && initial_snakes>0 && bullet_count>0){
             if (initial_snakes > 0) {
                 ResetBulletCount()
@@ -540,15 +613,16 @@ class GameViewModel: ViewModel() {
         ResetBullets()
         ResetTotalBullets()
         ResetSnakes()
+        ResetSpiderStuff()
         iswin=false
         islost=false
         paused=false
     }
 
-    fun PickRandomMovement():Movement{
-        val lst= listOf(Movement.UP,Movement.DOWN,Movement.RIGHT,Movement.LEFT,Movement.DIAGONAL_TOP_LEFT,Movement.DIAGONAL_TOP_RIGHT,Movement.DIAGONAL_BOTTOM_LEFT,Movement.DIAGONAL_BOTTOM_RIGHT)
+    fun PickRandomMovement(lst:List<Movement> = listOf()):Movement{
         return lst.random()
     }
+
     fun GetRequiredOffset(movement: Movement,speed:Float):Offset{
         var newoff=Offset.Zero
         if(movement==Movement.UP){

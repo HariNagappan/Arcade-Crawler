@@ -190,17 +190,17 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
             gameViewModel.gunbitmapheight=gunbitmap.height.toFloat()
         }
     }
-//    LaunchedEffect(gameViewModel.should_spawn_spider) {
-//        if (gameViewModel.should_spawn_spider) {
-//            gameViewModel.SetSpiderStartPosition(
-//                Offset(
-//                    0f,
-//                    joystickcenter.y - gameViewModel.joyStick.outerradius * 2f
-//                )
-//            )
-//            //gameViewModel.AddSpider(movement = Movement.DIAGONAL_BOTTOM_RIGHT)
-//        }
-//    }
+    LaunchedEffect(gameViewModel.should_spawn_spider) {
+        val possibleoffsets= listOf(Offset(0f, joystickcenter.y - gameViewModel.joyStick.outerradius * 3f),Offset(canvas_size.width/2f, joystickcenter.y - gameViewModel.joyStick.outerradius * 3f),Offset((canvas_size.width-spiderbitmap.width).toFloat(), joystickcenter.y - gameViewModel.joyStick.outerradius * 3f))
+        if (gameViewModel.should_spawn_spider && gameViewModel.spider_list.isEmpty()) {
+            val random_start_position=possibleoffsets.random()
+
+            gameViewModel.SetSpiderStartPosition(random_start_position)
+            gameViewModel.AddSpider(movement = GetRandomMovementBasedOnIdx(idx=possibleoffsets.indexOf(random_start_position)),
+                bitmap_width = spiderbitmap.width.toFloat(),
+                bitmap_height = spiderbitmap.height.toFloat())
+        }
+    }
 
     if(isdragging){
         thumbmoveoffset=thumboffset-joystickcenter
@@ -244,7 +244,8 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
                     }
                 }
             )
-        }) {
+        })
+    {
 
         drawRect(
             color=bgcolor,
@@ -305,13 +306,13 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
             maxy=canvas_size.height.toFloat(),
             step_down_height = snakeheadbitmap.width.toFloat()*1.2f
         )
-//        gameViewModel.spider_list.forEach{ spider->
-//            drawImage(
-//                image=spiderbitmap,
-//                topLeft = spider.spider_position.value
-//            )
-//        }
-        //gameViewModel.MoveSpiders()
+        gameViewModel.spider_list.forEach{ spider->
+            drawImage(
+                image=spiderbitmap,
+                topLeft = spider.spider_position.value
+            )
+        }
+        gameViewModel.MoveSpiders(leastx = 0f, maxx = canvas_size.width.toFloat(), leasty = 0f, maxy = canvas_size.height.toFloat())
     }
     Box(modifier=Modifier
         .offset {
@@ -649,4 +650,13 @@ fun GetEquivalentThumbPosition(curtouched:Offset,center:Offset,radius:Float):Off
         return curtouched
     }
     return Offset((radius * curtouched.x + (distance-radius)*center.x)/distance,(radius * curtouched.y + (distance-radius)*center.y)/distance)
+}
+fun GetRandomMovementBasedOnIdx(idx:Int):Movement{//modifiy for larger lists
+    if(idx==0){
+        return listOf(Movement.RIGHT,Movement.DIAGONAL_TOP_RIGHT,Movement.DIAGONAL_BOTTOM_RIGHT).random()
+    }
+    else if(idx==1){
+        return all_movements.random()
+    }
+    return listOf(Movement.LEFT,Movement.DIAGONAL_TOP_LEFT,Movement.DIAGONAL_BOTTOM_LEFT).random()
 }
