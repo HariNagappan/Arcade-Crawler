@@ -187,7 +187,7 @@ class GameViewModel: ViewModel() {
              if(snakeNode.movement==Movement.RIGHT){
                  if(snakeNode.node_position.value.x+snake.bitmap_width>=maxx || mushroom_list.find {IsOverlapping(startA=snakeNode.node_position.value, widthA=snake.bitmap_width,heightA=snake.bitmap_height,startB=it.mushroom_position, widthB = it.bitmap_width, heightB = it.bitmap_height)}!=null){
                      if(snakeNode.hierarchy==SnakeHierarchy.HEAD){
-                         snakeNode.node_position.value=Offset(snakeNode.node_position.value.x-GetSnakeVelocity()*2,snakeNode.node_position.value.y+step_down_height)
+                         snakeNode.node_position.value+=Offset(-GetSnakeVelocity()*2,step_down_height)
                      }
                      else{
                         snakeNode.node_position.value=Offset(snakeNode.previous!!.node_position.value.x+snake.bitmap_width-GetSnakeVelocity(),snakeNode.previous!!.node_position.value.y)
@@ -198,10 +198,10 @@ class GameViewModel: ViewModel() {
                      snakeNode.node_position.value+=Offset(GetSnakeVelocity(),0f)
                  }
              }
-             else{
+             else if(snakeNode.movement==Movement.LEFT){
                  if(snakeNode.node_position.value.x<=leastx || mushroom_list.find {IsOverlapping(startA=snakeNode.node_position.value, widthA=snake.bitmap_width,heightA=snake.bitmap_height,startB=it.mushroom_position, widthB = it.bitmap_width, heightB = it.bitmap_height)}!=null){
                      if(snakeNode.hierarchy==SnakeHierarchy.HEAD){
-                         snakeNode.node_position.value=Offset(snakeNode.node_position.value.x+GetSnakeVelocity()*2,snakeNode.node_position.value.y+step_down_height)
+                         snakeNode.node_position.value+=Offset(GetSnakeVelocity()*2,step_down_height)
                      }
                      else{
                          snakeNode.node_position.value=Offset(snakeNode.previous!!.node_position.value.x-snake.bitmap_width+GetSnakeVelocity(),snakeNode.previous!!.node_position.value.y)
@@ -299,7 +299,6 @@ class GameViewModel: ViewModel() {
         //always do SetSpiderStartPosition before this
         spiderdelaythread= viewModelScope.launch {
             delay(spider_spawn_delay.toLong())
-            should_spawn_spider = true
             ChangeSpawnDelay(start = 2000, end = 10000)
             spider_list.add(
                 Spider(
@@ -313,8 +312,9 @@ class GameViewModel: ViewModel() {
             spiderbitmapwidth = bitmap_width
             spiderbitmapheight = bitmap_height
             IncrementSpiderCount()
-            should_spawn_spider = false
+            spiderdelaythread=null
         }
+        should_spawn_spider=false
     }
     fun MoveSpiders(leastx: Float,maxx: Float,leasty: Float, maxy: Float){
         spider_list.forEach(){spider->
@@ -386,10 +386,11 @@ class GameViewModel: ViewModel() {
         spider_spawn_delay=Math.random().toFloat()*(end-start) + start
     }
     fun ResetSpiderStuff(){
+        spiderdelaythread?.cancel()
         spider_list.clear()
         spider_count=0
+        spider_spawn_delay=5000f
         should_spawn_spider=true
-        spiderdelaythread?.cancel()
     }
 
     fun IncrementBulletCount(){
