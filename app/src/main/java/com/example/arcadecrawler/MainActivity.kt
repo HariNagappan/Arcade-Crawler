@@ -156,6 +156,7 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
     SetPreviousSpeeds(gameViewModel=gameViewModel,context=context)
     SetPreviousBrightness(context=context,gameViewModel=gameViewModel)
     SetBrightness(context=context, newbrightness = 0.7f)
+    SetPreviousGunMovement(context=context,gameViewModel=gameViewModel)
     if(gameViewModel.bgplayer==null) {
         gameViewModel.SetMediaPlayer(context = context)
     }
@@ -400,4 +401,9 @@ fun SetPreviousBrightness(context: Context,gameViewModel: GameViewModel){
     val prefs=context.getSharedPreferences(shared_pref_filename,Context.MODE_PRIVATE)
     val brightness=prefs.getFloat("screenbrightness",0.7f)
     gameViewModel.cur_brightness=brightness
+}
+fun SetPreviousGunMovement(context: Context,gameViewModel: GameViewModel){
+    val prefs=context.getSharedPreferences(shared_pref_filename,Context.MODE_PRIVATE)
+    val isgyro=prefs.getBoolean("isgyro",false)
+    gameViewModel.isgyro=isgyro
 }

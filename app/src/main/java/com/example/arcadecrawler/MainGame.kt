@@ -2,6 +2,10 @@ package com.example.arcadecrawler
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.util.Log
 import androidx.annotation.Px
 import androidx.compose.foundation.Canvas
@@ -33,7 +37,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.window.Dialog
@@ -73,7 +80,6 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
 
     Box(modifier= Modifier.fillMaxSize()){
         MainCanvas(gameViewModel=gameViewModel,
-            onnavigateup={onnavigateup},
             modifier=Modifier
             .fillMaxSize()
             .align(Alignment.Center)
@@ -122,10 +128,13 @@ fun MainGame(gameViewModel: GameViewModel,onnavigateup:()->Unit,onnavigaterestar
                 cur_bullet_count = gameViewModel.total_bullet_count,
                 gameViewModel=gameViewModel)
         }
+        if(gameViewModel.isgyro) {
+            GyroGun(gameViewModel = gameViewModel)
+        }
     }
 }
 @Composable
-fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Modifier){
+fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
     val localdensity= LocalDensity.current
     val context= LocalContext.current
 
@@ -155,6 +164,7 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
 
     var mushroomdummy by remember{mutableStateOf(0f)}
     val bgcolor= colorResource(R.color.ivory)
+
 
     with(localdensity){
         gameViewModel.SetInnerRadius(24.dp.toPx())
@@ -201,11 +211,16 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
                 bitmap_height = spiderbitmap.height.toFloat())
         }
     }
-
-    if(isdragging){
+    gameViewModel.SetGunBoundaries(
+        leastx = 0f,
+        maxx=canvas_size.width.toFloat()-gunbitmap.width.toFloat(),
+        leasty = originalguntopleft.y- with(localdensity){40.dp.toPx()},
+        maxy=canvas_size.height.toFloat()-gunbitmap.height.toFloat()
+    )
+    if(isdragging && !gameViewModel.isgyro){
         thumbmoveoffset=thumboffset-joystickcenter
         newgunoffset=gameViewModel.gun_position+ thumbmoveoffset * velocity_factor
-        newgunoffset=Offset(newgunoffset.x.coerceIn(0f,canvas_size.width.toFloat()-gunbitmap.width.toFloat()),newgunoffset.y.coerceIn(originalguntopleft.y- with(localdensity){40.dp.toPx()},canvas_size.height.toFloat()-gunbitmap.height.toFloat()))
+        newgunoffset=Offset(newgunoffset.x.coerceIn(gameViewModel.gun_leastx,gameViewModel.gun_maxx),newgunoffset.y.coerceIn(gameViewModel.gun_leasty,gameViewModel.gun_maxy))
         gameViewModel.UpdateGunPosition(newgunoffset)
     }
     gameViewModel.SetJoystickThumbPosition(thumboffset)
@@ -219,34 +234,30 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
         .pointerInput("Joystick"){
             detectDragGestures(
                 onDrag={ change, dragAmount ->
-                        thumboffset= if(isdragging || (change.position-joystickcenter).getDistance()<gameViewModel.joyStick.outerradius)
-                            {
-                                GetEquivalentThumbPosition(curtouched = change.position,center=joystickcenter, radius = gameViewModel.joyStick.outerradius)
-                            }
-                        else
-                            {thumboffset}
-                        gameViewModel.SetJoystickThumbPosition(thumboffset)
-                        isdragging=true
+                        if(!gameViewModel.isgyro) {
+                            thumboffset =
+                                if (isdragging || (change.position - joystickcenter).getDistance() < gameViewModel.joyStick.outerradius) {
+                                    GetEquivalentThumbPosition(
+                                        curtouched = change.position,
+                                        center = joystickcenter,
+                                        radius = gameViewModel.joyStick.outerradius
+                                    )
+                                } else {
+                                    thumboffset
+                                }
+                            gameViewModel.SetJoystickThumbPosition(thumboffset)
+                            isdragging = true
+                        }
                     },
                 onDragEnd = {
-                    thumboffset=joystickcenter
-                    isdragging=false
-                }
-            )
-        }
-        .pointerInput("LaunchBullet"){
-            detectTapGestures(
-                onTap = {change ->
-                    val tmp=Offset(bulletfireoffset.x+bulletfirebitmap.width/2f,bulletfireoffset.y+bulletfirebitmap.height/2f)
-                    if((change-tmp).getDistance()<=bulletfirebitmap.width){
-                        //fire bullet
-
+                    if(!gameViewModel.isgyro) {
+                        thumboffset = joystickcenter
+                        isdragging = false
                     }
                 }
             )
         })
     {
-
         drawRect(
             color=bgcolor,
             topLeft = Offset.Zero,
@@ -256,16 +267,18 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
             image = gunbitmap,
             topLeft = gameViewModel.gun_position,
         )
-        drawCircle(
-            color=Color.LightGray,
-            radius = gameViewModel.joyStick.outerradius,
-            center=joystickcenter
-        )
-        drawCircle(
-            color=Color.DarkGray,
-            radius = gameViewModel.joyStick.innerradius,
-            center=gameViewModel.GetJoystickThumbPosition()
-        )
+        if(!gameViewModel.isgyro){
+            drawCircle(
+                color=Color.LightGray,
+                radius = gameViewModel.joyStick.outerradius,
+                center=joystickcenter
+            )
+            drawCircle(
+                color=Color.DarkGray,
+                radius = gameViewModel.joyStick.innerradius,
+                center=gameViewModel.GetJoystickThumbPosition()
+            )
+        }
         drawImage(
             image=bulletfirebitmap,
             topLeft = bulletfireoffset
@@ -314,6 +327,7 @@ fun MainCanvas(gameViewModel: GameViewModel,onnavigateup: () -> Unit,modifier:Mo
         }
         gameViewModel.MoveSpiders(leastx = 0f, maxx = canvas_size.width.toFloat(), leasty = 0f, maxy = canvas_size.height.toFloat())
     }
+
     Box(modifier=Modifier
         .offset {
             IntOffset(
@@ -659,4 +673,54 @@ fun GetRandomMovementBasedOnIdx(idx:Int):Movement{//modifiy for larger lists
         return all_movements.random()
     }
     return listOf(Movement.LEFT,Movement.DIAGONAL_TOP_LEFT,Movement.DIAGONAL_BOTTOM_LEFT).random()
+}
+
+@Composable
+fun GyroGun(gameViewModel: GameViewModel) {
+    val context = LocalContext.current
+    val sensorManager = remember {
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
+    val gyroscope = remember {
+        sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+    }
+
+    val sensitivity = 100f
+    var deltaX by remember { mutableStateOf(0f) }
+    var deltaY by remember { mutableStateOf(0f) }
+
+    DisposableEffect(Unit) {
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                event?.let {
+                    deltaX = it.values[1] * sensitivity
+                    deltaY = it.values[0] * sensitivity
+                }
+                gameViewModel.gyrogunoffsetx += deltaX
+                gameViewModel.gyrogunoffsety += deltaY
+                if(gameViewModel.gyrogunoffsetx<=gameViewModel.gun_leastx || gameViewModel.gyrogunoffsetx>=gameViewModel.gun_maxx){
+                    gameViewModel.gyrogunoffsetx-=deltaX
+                }
+                if(gameViewModel.gyrogunoffsety<=gameViewModel.gun_leasty || gameViewModel.gyrogunoffsety>=gameViewModel.gun_maxy) {
+                    gameViewModel.gyrogunoffsety-=deltaY
+                }
+                gameViewModel.UpdateGunPosition(
+                    Offset(
+                        gameViewModel.gyrogunoffsetx,
+                        gameViewModel.gyrogunoffsety
+                    )
+                )
+
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        Log.d("boundaryvalues","${gameViewModel.gun_leastx},${gameViewModel.gun_maxx},${gameViewModel.gun_leasty},${gameViewModel.gun_maxy}")
+        sensorManager.registerListener(listener, gyroscope, SensorManager.SENSOR_DELAY_GAME)
+        onDispose {
+            sensorManager.unregisterListener(listener)
+        }
+    }
+
 }

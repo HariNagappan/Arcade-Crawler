@@ -55,6 +55,7 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
     var snakeselectedoption by remember{mutableStateOf(sharedprefs.getInt("snakeselectedoption", speed_options.indexOf(gameViewModel.snakevelocityfactor)))}
 
     var sliderpos by remember { mutableStateOf(gameViewModel.cur_volume) }
+    var isgyro by remember{ mutableStateOf(gameViewModel.isgyro)}
     Column(horizontalAlignment = Alignment.CenterHorizontally ,modifier= Modifier.fillMaxSize().background(color= colorResource(R.color.ivory)).padding(top=32.dp)){
         Box(modifier=Modifier.fillMaxWidth()){
             Image(
@@ -200,6 +201,55 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
             )
         }
         Spacer(modifier=Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(8.dp)){
+            Text(
+                text="Gun Control: ",
+                fontSize = 16.sp,
+                fontWeight= FontWeight.Bold,
+                textAlign = TextAlign.Left,
+                color = colorResource(R.color.dark_gold),
+                modifier=Modifier.weight(1f)
+            )
+            Text(
+                text = "JoyStick",
+                fontWeight= FontWeight.Bold,
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(
+                        width = if (!isgyro) 2.dp else 0.dp,
+                        color = if(!isgyro) colorResource(R.color.mint) else Color.Transparent,
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .clickable {
+                        gameViewModel.PlayButtonClick()
+                        isgyro=false
+                    }
+                    .padding(vertical = 4.dp, horizontal = 8.dp),
+                color = colorResource(R.color.coral)
+            )
+            Text(
+                text = "Gyroscope",
+                fontWeight= FontWeight.Bold,
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(
+                        width = if (isgyro) 2.dp else 0.dp,
+                        color = if(isgyro) colorResource(R.color.mint) else Color.Transparent,
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .clickable {
+                        gameViewModel.PlayButtonClick()
+                        isgyro=true
+                    }
+                    .padding(vertical = 4.dp, horizontal = 8.dp),
+                color = colorResource(R.color.coral)
+            )
+
+
+        }
+        Spacer(modifier=Modifier.height(16.dp))
         Image(
                 painter= painterResource(R.drawable.tick),
                 contentDescription = null,
@@ -211,11 +261,13 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                         gameViewModel.SetSnakeVelocityFactor(speed_options[snakeselectedoption])
                         gameViewModel.SetBulletVelocityFactor(speed_options[bulletselectedoption])
                         gameViewModel.SetGunVelocityFactor(speed_options[gunselectedoption])
+                        gameViewModel.SetGunMovement(isgyro=isgyro)
 
                         editor.putInt("snakeselectedoption",snakeselectedoption)
                         editor.putInt("bulletselectedoption",bulletselectedoption)
                         editor.putInt("gunselectedoption",gunselectedoption)
                         editor.putFloat("bgvolume",sliderpos)
+                        editor.putBoolean("isgyro",isgyro)
                         editor.apply()
                         onnavigateup()
                     }

@@ -25,15 +25,24 @@ import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
 class GameViewModel: ViewModel() {
-    var gun_position by mutableStateOf(Offset.Zero)
-        private set
     var joyStick by mutableStateOf(Joystick())
         private set
 
+    var gun_position by mutableStateOf(Offset.Zero)
+        private set
     var gunvelocityfactor by mutableStateOf(Speed.SLOW)
         private set
     var gunbitmapwidth=0f
     var gunbitmapheight=0f
+    var gun_leastx by mutableStateOf(0f)
+    var gun_maxx by mutableStateOf(0f)
+    var gun_leasty by mutableStateOf(0f)
+    var gun_maxy by mutableStateOf(0f)
+
+    var gyrogunoffsetx by mutableStateOf(0f)
+    var gyrogunoffsety by mutableStateOf(0f)
+
+
 
     var bulletvelocity by mutableStateOf(Speed.MEDIUM)
     val bullet_list = mutableStateListOf<Bullet>()
@@ -61,7 +70,6 @@ class GameViewModel: ViewModel() {
     var spiderbitmapwidth=0f
     var spiderbitmapheight=0f
 
-
     var org_mushroom_count by mutableStateOf(10)
     var cur_mushroom_id = 0
         private set
@@ -81,9 +89,14 @@ class GameViewModel: ViewModel() {
     private var mushroomheight:Float=0f
     private var spiderdelaythread:Job?=null
 
+    var isgyro by mutableStateOf(false)
 
     fun UpdateGunPosition(newOffset: Offset) {
         gun_position = newOffset
+        if(isgyro){//this is for inital placement required
+            gyrogunoffsetx=newOffset.x
+            gyrogunoffsety=newOffset.y
+        }
     }
     fun SetJoystickThumbPosition(newOffset: Offset) {
         joyStick = joyStick.copy(thumbpositon = newOffset)
@@ -107,6 +120,15 @@ class GameViewModel: ViewModel() {
     }
     fun SetGunVelocityFactor(newfactor: Speed) {
         gunvelocityfactor = newfactor
+    }
+    fun SetGunMovement(isgyro:Boolean){
+        this.isgyro=isgyro
+    }
+    fun SetGunBoundaries(leastx: Float,maxx: Float,leasty: Float,maxy: Float){
+        gun_leastx=leastx
+        gun_maxx=maxx
+        gun_leasty=leasty
+        gun_maxy=maxy
     }
 
     fun SetSnakes(new_snakes: Int) {
@@ -336,6 +358,8 @@ class GameViewModel: ViewModel() {
             val delete_mushroom=listOf(false,true).random()
             if(delete_mushroom==false) {
                 var newmovement = PickRandomMovement(all_movements)
+                var max_iteration=100
+                var count=0
                 while (IsOverlapping(
                         startA = spider.spider_position.value + GetRequiredOffset(
                             movement = newmovement,
@@ -349,6 +373,10 @@ class GameViewModel: ViewModel() {
                     )
                 ) {
                     newmovement = PickRandomMovement(all_movements)
+                    count+=1
+                    if(count>=max_iteration){
+                        break
+                    }
                 }
                 spider.movement.value = newmovement
             }
@@ -653,4 +681,6 @@ class GameViewModel: ViewModel() {
 
         return newoff
     }
+
+
 }
