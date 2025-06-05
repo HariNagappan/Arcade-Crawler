@@ -2,6 +2,7 @@ package com.example.arcadecrawler
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -54,7 +55,8 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
     var bulletselectedoption by remember{mutableStateOf(sharedprefs.getInt("bulletselectedoption", speed_options.indexOf(gameViewModel.bulletvelocity)))}
     var snakeselectedoption by remember{mutableStateOf(sharedprefs.getInt("snakeselectedoption", speed_options.indexOf(gameViewModel.snakevelocityfactor)))}
 
-    var sliderpos by remember { mutableStateOf(gameViewModel.cur_volume) }
+    var volumesliderpos by remember { mutableStateOf(gameViewModel.cur_volume) }
+    var gyrosliderpos by remember { mutableStateOf(gameViewModel.gyro_sensitivity) }
     var isgyro by remember{ mutableStateOf(gameViewModel.isgyro)}
     Column(horizontalAlignment = Alignment.CenterHorizontally ,modifier= Modifier.fillMaxSize().background(color= colorResource(R.color.ivory)).padding(top=32.dp)){
         Box(modifier=Modifier.fillMaxWidth()){
@@ -68,7 +70,7 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                     .clip(CircleShape)
                     .clickable {
                         gameViewModel.PlayButtonClick()
-                        editor.putFloat("bgvolume",sliderpos)
+                        editor.putFloat("bgvolume",volumesliderpos)
                         editor.apply()
                         onnavigateup()
                     }
@@ -190,9 +192,9 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                 fontWeight = FontWeight.Bold
             )
             Slider(
-                value = sliderpos,
+                value = volumesliderpos,
                 onValueChange = {
-                    sliderpos = it
+                    volumesliderpos = it
                     gameViewModel.SetBgVolume(it)
                 },
                 valueRange = 0f..1f,
@@ -249,6 +251,27 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
 
 
         }
+        AnimatedVisibility(isgyro) {
+            Spacer(modifier=Modifier.height(16.dp))
+            Row(verticalAlignment = Alignment.CenterVertically,modifier=Modifier.fillMaxWidth().padding(4.dp)) {
+                Text(
+                    text = "GyroScope Sensitivity",
+                    textAlign = TextAlign.Center,
+                    color= colorResource(R.color.dark_gray),
+                    fontWeight = FontWeight.Bold
+                )
+                Slider(
+                    value = gyrosliderpos,
+                    onValueChange = {
+                        gyrosliderpos = it
+                    },
+                    valueRange = 10f..50f,
+                    modifier = Modifier
+                        .weight(1f)
+                )
+            }
+        }
+        
         Spacer(modifier=Modifier.height(16.dp))
         Image(
                 painter= painterResource(R.drawable.tick),
@@ -262,12 +285,14 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
                         gameViewModel.SetBulletVelocityFactor(speed_options[bulletselectedoption])
                         gameViewModel.SetGunVelocityFactor(speed_options[gunselectedoption])
                         gameViewModel.SetGunMovement(isgyro=isgyro)
+                        gameViewModel.SetGyroSensitivity(newsensitivity = gyrosliderpos)
 
                         editor.putInt("snakeselectedoption",snakeselectedoption)
                         editor.putInt("bulletselectedoption",bulletselectedoption)
                         editor.putInt("gunselectedoption",gunselectedoption)
-                        editor.putFloat("bgvolume",sliderpos)
+                        editor.putFloat("bgvolume",volumesliderpos)
                         editor.putBoolean("isgyro",isgyro)
+                        editor.putFloat("gyrosensitvity",gyrosliderpos)
                         editor.apply()
                         onnavigateup()
                     }

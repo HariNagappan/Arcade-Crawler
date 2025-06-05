@@ -118,6 +118,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    override fun onPause(){
+        super.onPause()
+
+    }
 }
 @Composable
 fun StartGame(navController: NavHostController = rememberNavController()){
@@ -157,6 +161,7 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
     SetPreviousBrightness(context=context,gameViewModel=gameViewModel)
     SetBrightness(context=context, newbrightness = 0.7f)
     SetPreviousGunMovement(context=context,gameViewModel=gameViewModel)
+    SetPreviousGyroSensitivity(context=context,gameViewModel=gameViewModel)
     if(gameViewModel.bgplayer==null) {
         gameViewModel.SetMediaPlayer(context = context)
     }
@@ -406,4 +411,9 @@ fun SetPreviousGunMovement(context: Context,gameViewModel: GameViewModel){
     val prefs=context.getSharedPreferences(shared_pref_filename,Context.MODE_PRIVATE)
     val isgyro=prefs.getBoolean("isgyro",false)
     gameViewModel.isgyro=isgyro
+}
+fun SetPreviousGyroSensitivity(context: Context,gameViewModel: GameViewModel){
+    val prefs=context.getSharedPreferences(shared_pref_filename,Context.MODE_PRIVATE)
+    val sensitvity=prefs.getFloat("gyrosensitvity",gameViewModel.gyro_sensitivity)
+    gameViewModel.SetGyroSensitivity(sensitvity)
 }

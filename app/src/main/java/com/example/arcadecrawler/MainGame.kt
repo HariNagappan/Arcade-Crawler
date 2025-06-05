@@ -685,7 +685,6 @@ fun GyroGun(gameViewModel: GameViewModel) {
         sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
     }
 
-    val sensitivity = 100f
     var deltaX by remember { mutableStateOf(0f) }
     var deltaY by remember { mutableStateOf(0f) }
 
@@ -693,8 +692,8 @@ fun GyroGun(gameViewModel: GameViewModel) {
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
                 event?.let {
-                    deltaX = it.values[1] * sensitivity
-                    deltaY = it.values[0] * sensitivity
+                    deltaX = it.values[1] * gameViewModel.gyro_sensitivity
+                    deltaY = it.values[0] * gameViewModel.gyro_sensitivity
                 }
                 gameViewModel.gyrogunoffsetx += deltaX
                 gameViewModel.gyrogunoffsety += deltaY

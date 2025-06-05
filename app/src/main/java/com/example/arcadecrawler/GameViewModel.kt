@@ -38,9 +38,10 @@ class GameViewModel: ViewModel() {
     var gun_maxx by mutableStateOf(0f)
     var gun_leasty by mutableStateOf(0f)
     var gun_maxy by mutableStateOf(0f)
-
     var gyrogunoffsetx by mutableStateOf(0f)
     var gyrogunoffsety by mutableStateOf(0f)
+    var isgyro by mutableStateOf(false)
+    var gyro_sensitivity by mutableStateOf(20f)
 
 
 
@@ -89,7 +90,7 @@ class GameViewModel: ViewModel() {
     private var mushroomheight:Float=0f
     private var spiderdelaythread:Job?=null
 
-    var isgyro by mutableStateOf(false)
+
 
     fun UpdateGunPosition(newOffset: Offset) {
         gun_position = newOffset
@@ -129,6 +130,9 @@ class GameViewModel: ViewModel() {
         gun_maxx=maxx
         gun_leasty=leasty
         gun_maxy=maxy
+    }
+    fun SetGyroSensitivity(newsensitivity:Float){
+        gyro_sensitivity=newsensitivity
     }
 
     fun SetSnakes(new_snakes: Int) {
