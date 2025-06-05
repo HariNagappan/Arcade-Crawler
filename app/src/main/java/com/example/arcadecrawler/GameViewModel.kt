@@ -439,7 +439,6 @@ class GameViewModel: ViewModel() {
         bullet_list.add(Bullet(id = bullet_count, bullet_position = mutableStateOf(start_position), bitmap_width = width, bitmap_height = height))
         IncrementBulletCount()
         Log.d("snakelist","$snake_list")
-
     }
     fun MoveBullets(){
         bullet_list.forEach { bullet->
@@ -617,6 +616,12 @@ class GameViewModel: ViewModel() {
             bgplayer!!.setVolume(cur_volume,cur_volume)
             bgplayer!!.isLooping=true
         }
+    }
+    fun PauseMusic(){
+        bgplayer?.pause()
+    }
+    fun ResumeMusic(){
+        bgplayer?.start()
     }
     fun SetBgVolume(newvolume:Float){
         cur_volume=newvolume

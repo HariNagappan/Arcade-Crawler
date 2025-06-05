@@ -9,6 +9,7 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -88,6 +89,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.arcadecrawler.ui.theme.ArcadeCrawlerTheme
 
 class MainActivity : ComponentActivity() {
+    private val gameViewModel:GameViewModel by viewModels()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -113,19 +115,24 @@ class MainActivity : ComponentActivity() {
         setContent {
             ArcadeCrawlerTheme {
                 Box(modifier=Modifier.fillMaxSize()){
-                    StartGame()
+                    StartGame(gameViewModel=gameViewModel)
                 }
             }
         }
     }
     override fun onPause(){
         super.onPause()
+        gameViewModel.PauseMusic()
+    }
 
+    override fun onResume() {
+        super.onResume()
+        gameViewModel.ResumeMusic()
     }
 }
 @Composable
-fun StartGame(navController: NavHostController = rememberNavController()){
-    val gameViewModel:GameViewModel = viewModel()
+fun StartGame(gameViewModel: GameViewModel, navController: NavHostController = rememberNavController()){
+
     NavHost(navController = navController, startDestination = Screens.HOME.name, modifier = Modifier.fillMaxSize().statusBarsPadding()){
         composable(Screens.HOME.name){
             StartScreen(onsettingclick = {navController.navigate(Screens.SETTINGS.name)},
