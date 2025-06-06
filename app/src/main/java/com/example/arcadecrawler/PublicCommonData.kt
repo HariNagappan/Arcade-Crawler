@@ -32,7 +32,10 @@ enum class SnakeHierarchy{
     HEAD,
     NODE
 }
-
+enum class MushroomType{
+    NORMAL,
+    POISON
+}
 
 val blackwhitegridheight=100.dp
 val speed_options = listOf(Speed.SLOW,Speed.MEDIUM,Speed.FAST)
@@ -41,7 +44,7 @@ val all_movements=Movement.values().toList()
 
 data class Joystick(var thumbpositon:Offset=Offset.Zero,var outerradius:Float=0f,var innerradius:Float=0f)
 data class Bullet(val id:Int,var bullet_position:MutableState<Offset> = mutableStateOf(Offset.Zero),var bitmap_width:Float,var bitmap_height:Float)
-data class Mushroom(val id:Int,var mushroom_position:Offset,var health:Int=5,var bitmap_width: Float,var bitmap_height: Float)
+data class Mushroom(val id:Int,var mushroomType: MushroomType,var mushroom_position:Offset,var health:Int=5,var bitmap_width: Float,var bitmap_height: Float)
 data class Snake(val id:Int,var node_lst:SnapshotStateList<SnakeNode>,var head_position:MutableState<Offset>,val bitmap_width: Float,val bitmap_height: Float)
 data class SnakeNode(
     var hierarchy: SnakeHierarchy,
@@ -53,6 +56,12 @@ data class Spider(
     var id:Int,
     var spider_position:MutableState<Offset>,
     var movement: MutableState<Movement>,
+    val bitmap_width: Float,
+    val bitmap_height: Float
+)
+data class Scorpion(
+    var id:Int,
+    var scorpion_position:MutableState<Offset>,
     val bitmap_width: Float,
     val bitmap_height: Float
 )

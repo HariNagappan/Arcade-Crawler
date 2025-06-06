@@ -2,6 +2,7 @@ package com.example.arcadecrawler
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.media.SoundPool
 import android.provider.MediaStore.Audio.Media
 import android.util.Log
 import androidx.annotation.Px
@@ -28,6 +29,7 @@ class GameViewModel: ViewModel() {
     var joyStick by mutableStateOf(Joystick())
         private set
 
+
     var gun_position by mutableStateOf(Offset.Zero)
         private set
     var gunvelocityfactor by mutableStateOf(Speed.SLOW)
@@ -44,7 +46,6 @@ class GameViewModel: ViewModel() {
     var gyro_sensitivity by mutableStateOf(20f)
 
 
-
     var bulletvelocity by mutableStateOf(Speed.MEDIUM)
     val bullet_list = mutableStateListOf<Bullet>()
     private var bullet_count = 0
@@ -52,8 +53,10 @@ class GameViewModel: ViewModel() {
     var total_bullet_count=0
         private set
 
+
     var initial_snakes by mutableStateOf(1)
         private set
+    private var private_initial_snakes=0
     var snakevelocityfactor by mutableStateOf(Speed.SLOW)
     var snake_length by mutableStateOf(9)
         private set
@@ -65,19 +68,34 @@ class GameViewModel: ViewModel() {
     var spider_count =0
     var should_spawn_spider by mutableStateOf(true)
     val spider_list = mutableStateListOf<Spider>()
-    val spider_velocity by mutableStateOf(6f)
+    var spider_velocity by mutableStateOf(6f)
     var spider_spawn_delay = 5000f
     var spider_start_position=Offset.Zero
-    var spiderbitmapwidth=0f
-    var spiderbitmapheight=0f
+    private var spiderdelaythread:Job?=null
+
+    val scorpion_list = mutableStateListOf<Scorpion>()
+    var scorpion_count=0
+    var scorpion_spawn_delay=2000f
+    var should_spawn_scorpion=true
+    var scorpion_velocity by mutableStateOf(5f)
+    var scorpion_start_position=Offset.Zero
+    private var scorpiondelaythread:Job?=null
+
 
     var org_mushroom_count by mutableStateOf(10)
     var cur_mushroom_id = 0
         private set
     val mushroom_list = mutableStateListOf<Mushroom>()
+    private var mushroomwidth:Float=0f
+    private var mushroomheight:Float=0f
+    var should_spawn_mushrooms=true
+
 
     var bgplayer:MediaPlayer?=null
-    lateinit var buttonplayer:MediaPlayer
+    val soundPool=SoundPool.Builder()
+        .setMaxStreams(10)
+        .build()
+    val all_short_sounds= mutableMapOf<String,Int>()
     var cur_volume by mutableStateOf(1f)
 
     var cur_brightness by mutableStateOf(0.7f)
@@ -85,11 +103,6 @@ class GameViewModel: ViewModel() {
     var iswin by mutableStateOf(false)
     var islost by mutableStateOf(false)
     var paused by mutableStateOf(false)
-    private var private_initial_snakes=0
-    private var mushroomwidth:Float=0f
-    private var mushroomheight:Float=0f
-    private var spiderdelaythread:Job?=null
-
 
 
     fun UpdateGunPosition(newOffset: Offset) {
@@ -210,33 +223,67 @@ class GameViewModel: ViewModel() {
     }
     private fun MoveSnake(snake: Snake,leastx:Float,maxx: Float,maxy: Float,step_down_height:Float){
          snake.node_lst.forEach { snakeNode ->
-             if(snakeNode.movement==Movement.RIGHT){
-                 if(snakeNode.node_position.value.x+snake.bitmap_width>=maxx || mushroom_list.find {IsOverlapping(startA=snakeNode.node_position.value, widthA=snake.bitmap_width,heightA=snake.bitmap_height,startB=it.mushroom_position, widthB = it.bitmap_width, heightB = it.bitmap_height)}!=null){
-                     if(snakeNode.hierarchy==SnakeHierarchy.HEAD){
-                         snakeNode.node_position.value+=Offset(-GetSnakeVelocity()*2,step_down_height)
+             val coincide_mushroom=mushroom_list.find {IsOverlapping(startA=snakeNode.node_position.value, widthA=snake.bitmap_width,heightA=snake.bitmap_height,startB=it.mushroom_position, widthB = it.bitmap_width, heightB = it.bitmap_height)}
+             if(coincide_mushroom==null || coincide_mushroom?.mushroomType==MushroomType.NORMAL) {
+                 if (snakeNode.movement == Movement.RIGHT) {
+                     if (snakeNode.node_position.value.x + snake.bitmap_width >= maxx || coincide_mushroom != null) {
+                         if (snakeNode.hierarchy == SnakeHierarchy.HEAD) {
+                             snakeNode.node_position.value += Offset(
+                                 -GetSnakeVelocity() * 2,
+                                 step_down_height
+                             )
+                         } else {
+                             snakeNode.node_position.value = Offset(
+                                 snakeNode.previous!!.node_position.value.x + snake.bitmap_width - GetSnakeVelocity(),
+                                 snakeNode.previous!!.node_position.value.y
+                             )
+                         }
+                         snakeNode.movement = Movement.LEFT
+                     } else {
+                         snakeNode.node_position.value += Offset(GetSnakeVelocity(), 0f)
                      }
-                     else{
-                        snakeNode.node_position.value=Offset(snakeNode.previous!!.node_position.value.x+snake.bitmap_width-GetSnakeVelocity(),snakeNode.previous!!.node_position.value.y)
+                 } else if (snakeNode.movement == Movement.LEFT) {
+                     if (snakeNode.node_position.value.x <= leastx || coincide_mushroom != null) {
+                         if (snakeNode.hierarchy == SnakeHierarchy.HEAD) {
+                             snakeNode.node_position.value += Offset(
+                                 GetSnakeVelocity() * 2,
+                                 step_down_height
+                             )
+                         } else {
+                             snakeNode.node_position.value = Offset(
+                                 snakeNode.previous!!.node_position.value.x - snake.bitmap_width + GetSnakeVelocity(),
+                                 snakeNode.previous!!.node_position.value.y
+                             )
+                         }
+                         snakeNode.movement = Movement.RIGHT
+                     } else {
+
+                         snakeNode.node_position.value -= Offset(GetSnakeVelocity(), 0f)
                      }
-                     snakeNode.movement=Movement.LEFT
                  }
-                 else{
-                     snakeNode.node_position.value+=Offset(GetSnakeVelocity(),0f)
+                 else if(snakeNode.movement==Movement.DOWN){
+                     snakeNode.node_position.value+=Offset(0f,GetSnakeVelocity())
+                     if(snakeNode.node_position.value.y+snake.bitmap_height>=maxy){
+                         val lst=listOf(Movement.LEFT,Movement.RIGHT)
+                         Log.d("snakenodemovement","yeess clicked")
+                         if(snakeNode.hierarchy==SnakeHierarchy.HEAD) {
+                             snakeNode.movement = lst.random()
+                         }
+                         else{
+                             snakeNode.movement=snakeNode.previous!!.movement
+
+                         }
+                     }
                  }
              }
-             else if(snakeNode.movement==Movement.LEFT){
-                 if(snakeNode.node_position.value.x<=leastx || mushroom_list.find {IsOverlapping(startA=snakeNode.node_position.value, widthA=snake.bitmap_width,heightA=snake.bitmap_height,startB=it.mushroom_position, widthB = it.bitmap_width, heightB = it.bitmap_height)}!=null){
-                     if(snakeNode.hierarchy==SnakeHierarchy.HEAD){
-                         snakeNode.node_position.value+=Offset(GetSnakeVelocity()*2,step_down_height)
-                     }
-                     else{
-                         snakeNode.node_position.value=Offset(snakeNode.previous!!.node_position.value.x-snake.bitmap_width+GetSnakeVelocity(),snakeNode.previous!!.node_position.value.y)
-                     }
-                     snakeNode.movement=Movement.RIGHT
-                 }
+             else if(coincide_mushroom?.mushroomType==MushroomType.POISON){
+                if(snakeNode.hierarchy==SnakeHierarchy.HEAD){
+                    snakeNode.node_position.value+=Offset(0f,GetSnakeVelocity())
+                }
                  else{
-                     snakeNode.node_position.value-=Offset(GetSnakeVelocity(),0f)
-                 }
+                    snakeNode.node_position.value=snakeNode.previous!!.node_position.value-Offset(0f,snake.bitmap_height) +Offset(0f,GetSnakeVelocity())
+                }
+                 snakeNode.movement=Movement.DOWN
              }
              if(IsOverlapping(startA=snakeNode.node_position.value, widthA = snake.bitmap_width, heightA = snake.bitmap_height, startB = gun_position, widthB =gunbitmapwidth, heightB = gunbitmapheight)){
                  islost=true
@@ -289,7 +336,10 @@ class GameViewModel: ViewModel() {
                 offset = snakeNode.node_position.value + Offset(
                     GetSnakeVelocity() * multiplication_factor,
                     0f
-                ), mushroomwidth = this.mushroomwidth, mushroomheight = this.mushroomheight
+                ),
+                mushroomType = MushroomType.NORMAL,
+                mushroomwidth = this.mushroomwidth,
+                mushroomheight = this.mushroomheight
             )
 
             snake.node_lst.remove(snakeNode)
@@ -325,7 +375,7 @@ class GameViewModel: ViewModel() {
         //always do SetSpiderStartPosition before this
         spiderdelaythread= viewModelScope.launch {
             delay(spider_spawn_delay.toLong())
-            ChangeSpawnDelay(start = 2000, end = 10000)
+            ChangeSpiderSpawnDelay(start = 2000, end = 5000)
             spider_list.add(
                 Spider(
                     id = spider_count,
@@ -335,9 +385,9 @@ class GameViewModel: ViewModel() {
                     bitmap_height = bitmap_height
                 )
             )
-            spiderbitmapwidth = bitmap_width
-            spiderbitmapheight = bitmap_height
-            IncrementSpiderCount()
+
+             IncrementSpiderCount()
+            ChangeSpiderVelocity()
             spiderdelaythread=null
         }
         should_spawn_spider=false
@@ -367,7 +417,7 @@ class GameViewModel: ViewModel() {
                 while (IsOverlapping(
                         startA = spider.spider_position.value + GetRequiredOffset(
                             movement = newmovement,
-                            speed = spider_velocity
+                            speed = GetSpiderVelocity()
                         ),
                         widthA = spider.bitmap_width,
                         heightA = spider.bitmap_height,
@@ -392,7 +442,7 @@ class GameViewModel: ViewModel() {
     fun RemoveRequiredSpiders(leastx: Float,maxx: Float,leasty: Float){
         val spiders_to_remove = mutableListOf<Int>()
         spider_list.forEach{
-            if(it.spider_position.value.x<=leastx ||  it.spider_position.value.x+spiderbitmapwidth >=maxx || it.spider_position.value.y<=leasty){
+            if(it.spider_position.value.x<=leastx ||  it.spider_position.value.x+it.bitmap_width >=maxx || it.spider_position.value.y<=leasty){
                 spiders_to_remove.add(it.id)
             }
         }
@@ -414,7 +464,15 @@ class GameViewModel: ViewModel() {
         }
         return spider_velocity
     }
-    fun ChangeSpawnDelay(start:Int,end:Int){
+    fun ChangeSpiderVelocity(lst:List<Float> = listOf()){
+        if(lst.isEmpty()){
+            spider_velocity=listOf(6f,9f,12f).random()
+        }
+        else{
+            spider_velocity=lst.random()
+        }
+    }
+    fun ChangeSpiderSpawnDelay(start:Int,end:Int){
         spider_spawn_delay=Math.random().toFloat()*(end-start) + start
     }
     fun ResetSpiderStuff(){
@@ -423,6 +481,88 @@ class GameViewModel: ViewModel() {
         spider_count=0
         spider_spawn_delay=5000f
         should_spawn_spider=true
+    }
+
+    fun SetScorpionStartPosition(offset: Offset){
+        scorpion_start_position=offset
+    }
+    fun AddScorpion(bitmap_width: Float,bitmap_height: Float){
+        //always SetScorpionStartPosition before this
+        scorpiondelaythread= viewModelScope.launch {
+            delay(scorpion_spawn_delay.toLong())
+            ChangeScorpionSpawnDelay(start=5000,end=10000)
+            scorpion_list.add(
+                Scorpion(
+                    id = scorpion_count,
+                    scorpion_position = mutableStateOf(scorpion_start_position),
+                    bitmap_width = bitmap_width,
+                    bitmap_height = bitmap_height
+                )
+            )
+            IncrementScorpionId()
+            scorpiondelaythread=null
+            ChangeScorpionVelocity()
+        }
+        should_spawn_scorpion=false
+    }
+    fun MoveScorpions(maxx: Float){
+        scorpion_list.forEach {scorpion ->
+            MoveScorpion(scorpion=scorpion)
+        }
+        RemoveRequiredScorpions(maxx=maxx)
+    }
+    private fun MoveScorpion(scorpion: Scorpion){
+        scorpion.scorpion_position.value+=Offset(GetScorpionVelocity(),0f)
+        for(mushroom in mushroom_list){
+            val coincide_mushroom = mushroom_list.find{ IsOverlapping(startA=it.mushroom_position, widthA = it.bitmap_width, heightA = it.bitmap_height, startB = scorpion.scorpion_position.value, widthB = scorpion.bitmap_width, heightB = scorpion.bitmap_height)}
+            if(coincide_mushroom!=null && coincide_mushroom.mushroomType!=MushroomType.POISON){
+                coincide_mushroom.mushroomType=MushroomType.POISON
+            }
+        }
+    }
+    fun RemoveScorpion(id:Int){
+        scorpion_list.removeIf { it.id==id }
+        should_spawn_scorpion=true
+    }
+    fun RemoveRequiredScorpions(maxx: Float){
+        val requiredscorpions= mutableListOf<Int>()
+        for(scorpion in scorpion_list){
+            if(scorpion.scorpion_position.value.x+scorpion.bitmap_width>=maxx){
+                requiredscorpions.add(scorpion.id)
+            }
+        }
+        for(id in requiredscorpions){
+            //Log.d("scorpionlist","yess:$requiredscorpions")
+            RemoveScorpion(id=id)
+        }
+    }
+    fun IncrementScorpionId(){
+        scorpion_count+=1
+    }
+    fun GetScorpionVelocity():Float{
+        if(paused){
+            return 0f
+        }
+        return scorpion_velocity
+    }
+    fun ChangeScorpionVelocity(lst:List<Float> = listOf()){
+        if(lst.isEmpty()){
+            scorpion_velocity=listOf(6f,9f,12f).random()
+        }
+        else{
+            scorpion_velocity=lst.random()
+        }
+    }
+
+    fun ChangeScorpionSpawnDelay(start:Int,end:Int){
+        scorpion_spawn_delay=Math.random().toFloat()*(end-start) + start
+    }
+    fun ResetScorpionStuff(){
+        scorpiondelaythread?.cancel()
+        scorpion_list.clear()
+        scorpion_count=0
+        scorpion_spawn_delay=6000f
+        should_spawn_scorpion=true
     }
 
     fun IncrementBulletCount(){
@@ -450,6 +590,7 @@ class GameViewModel: ViewModel() {
         val bullets_to_remove= mutableListOf<Int>()
         val snake_nodes_to_remove= mutableListOf<Pair<Snake,SnakeNode>>()
         val spiders_to_remove=mutableListOf<Int>()
+        val scorpions_to_remove= mutableListOf<Int>()
         bullet_list.removeIf{ it.bullet_position.value.y<=0f}
         for(i in 0 until mushroom_list.size){
             if(bullet_list.removeIf{IsOverlapping(
@@ -479,9 +620,19 @@ class GameViewModel: ViewModel() {
                 spiders_to_remove.add(spider.id)
             }
         }
+        for(scorpion in scorpion_list){
+            val coincide_bullet=bullet_list.find { IsOverlapping(startA = it.bullet_position.value, widthA = it.bitmap_width, heightA = it.bitmap_height, startB = scorpion.scorpion_position.value, widthB = scorpion.bitmap_width, heightB = scorpion.bitmap_height) }
+            if(coincide_bullet!=null){
+                bullets_to_remove.add(coincide_bullet.id)
+                scorpions_to_remove.add(scorpion.id)
+            }
+        }
         bullet_list.removeIf{ it.id in bullets_to_remove}
-        for(spider_remove in spiders_to_remove){
-            RemoveSpider(id=spider_remove)
+        for(spider_remove_id in spiders_to_remove){
+            RemoveSpider(id=spider_remove_id)
+        }
+        for(scorpion_remove_id in scorpions_to_remove){
+            RemoveScorpion(id=scorpion_remove_id)
         }
         for(pair in snake_nodes_to_remove){
             RemoveSnakeNode(snake=pair.first, snakeNode = pair.second)
@@ -531,29 +682,23 @@ class GameViewModel: ViewModel() {
     fun IncrementMushroomId(){
         cur_mushroom_id+=1
     }
-    fun AddMushroom(offset: Offset,mushroomwidth: Float,mushroomheight: Float){
+    fun AddMushroom(offset: Offset,mushroomType: MushroomType,mushroomwidth: Float,mushroomheight: Float){
         mushroom_list.add(Mushroom(id = cur_mushroom_id,
+            mushroomType=mushroomType,
             mushroom_position = offset,
             bitmap_width = mushroomwidth,
             bitmap_height = mushroomheight))
         IncrementMushroomId()
     }
-    fun AddMushrooms(leastx:Float,maxx:Float,leasty:Float,maxy:Float,mushroomwidth:Float,mushroomheight:Float){
+    fun AddMushrooms(mushroomType: MushroomType, leastx:Float,maxx:Float,leasty:Float,maxy:Float,mushroomwidth:Float,mushroomheight:Float){
         var randomx:Float
         var randomy:Float
         var j:Int
-//        val max_count=1000
-//        var curcount=0
         for(i in 0 until org_mushroom_count){
             randomx=Random.nextFloat() * (maxx-leastx) + leastx
             randomy=Random.nextFloat() * (maxy-leasty) + leasty
             j=0
-//            curcount=0
             while(j < mushroom_list.size){
-//                curcount+=1
-//                if(curcount>=max_count){
-//                    break
-//                }
                 if(IsOverlapping(
                         startA=Offset(randomx,randomy),
                         widthA=mushroomwidth,
@@ -565,25 +710,29 @@ class GameViewModel: ViewModel() {
                     j=0
                     continue
                 }
-//                else{
-//                    if(randomy>=mushroom_list[j].mushroom_position.y && randomy<=mushroom_list[j].mushroom_position.y + mushroomheight){
-//                        j=0
-//                        continue
-//                    }
-//                }
                 j+=1
             }
-            //Log.d("mushroomlist","$randomx,$randomy")
             this.mushroomwidth=mushroomwidth
             this.mushroomheight=mushroomheight
-            mushroom_list.add(Mushroom(id=cur_mushroom_id, mushroom_position = Offset(randomx,randomy), bitmap_width = mushroomwidth, bitmap_height = mushroomheight))
-            IncrementMushroomId()
+//            mushroom_list.add(Mushroom(id=cur_mushroom_id,
+//                mushroomType=mushroomType,
+//                mushroom_position = Offset(randomx,randomy),
+//                bitmap_width = mushroomwidth,
+//                bitmap_height = mushroomheight))
+//            IncrementMushroomId()
+            AddMushroom(
+                offset = Offset(randomx,randomy),
+                mushroomType=mushroomType,
+                mushroomwidth=mushroomwidth,
+                mushroomheight=mushroomheight
+            )
         }
     }
     fun ResetMushrooms(){
         org_mushroom_count=10
         mushroom_list.clear()
         cur_mushroom_id=0
+        should_spawn_mushrooms=true
     }
     fun IsOverlapping(startA:Offset,widthA:Float,heightA: Float,startB:Offset,widthB:Float=widthA,heightB: Float=heightA,xtra:Offset=Offset.Zero):Boolean{
         return !(startA.x>=startB.x+widthB+xtra.x || startA.x+widthA+xtra.x<=startB.x || startA.y>=startB.y+heightB+xtra.y || startA.y+heightA+xtra.y<=startB.y)
@@ -602,9 +751,14 @@ class GameViewModel: ViewModel() {
         //lst.reverse()
     }
 
-    fun SetMediaPlayer(context:Context){
+    fun SetMusicPlayers(context:Context){
         bgplayer=MediaPlayer.create(context,R.raw.bgmusic)
-        buttonplayer=MediaPlayer.create(context,R.raw.buttonclick)
+
+        val gunshotid=soundPool.load(context,R.raw.gunsound,1)
+        val btnplayerid=soundPool.load(context,R.raw.buttonclick,1)
+        all_short_sounds["gunshot"]=gunshotid
+        all_short_sounds["buttonclick"]=btnplayerid
+
     }
     fun IsBgPlayerInitialized():Boolean{
         return bgplayer!=null
@@ -628,11 +782,14 @@ class GameViewModel: ViewModel() {
         bgplayer!!.setVolume(newvolume,newvolume)
     }
     fun PlayButtonClick(){
-        if(buttonplayer.isPlaying){
-            buttonplayer.stop()
-            buttonplayer.prepare()
+        all_short_sounds["buttonclick"]?.let { soundid ->
+            soundPool.play(soundid,1f,1f,1,0,1f)
         }
-        buttonplayer.start()
+    }
+    fun PlayGunShot(){
+       all_short_sounds["gunshot"]?.let { soundid ->
+           soundPool.play(soundid,1f,1f,1,0,1f)
+       }
     }
 
     fun SetBrightness(newbrightness:Float){
@@ -652,6 +809,7 @@ class GameViewModel: ViewModel() {
         ResetTotalBullets()
         ResetSnakes()
         ResetSpiderStuff()
+        ResetScorpionStuff()
         iswin=false
         islost=false
         paused=false
@@ -691,5 +849,9 @@ class GameViewModel: ViewModel() {
         return newoff
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        soundPool.release()
+    }
 
 }

@@ -142,10 +142,11 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
     val bulletfirebitmap=ImageBitmap.imageResource(R.drawable.bulletfire)
     val bulletbitap=ImageBitmap.imageResource(R.drawable.bullet)
     val mushroombitmap=ImageBitmap.imageResource(R.drawable.mushroom)
+    val poisonmushroombitmap=ImageBitmap.imageResource(R.drawable.poisonmushroom)
     val snakeheadbitmap=ImageBitmap.imageResource(R.drawable.snakehead)
     val snakenodebitmap=ImageBitmap.imageResource(R.drawable.snake)
     val spiderbitmap=ImageBitmap.imageResource(R.drawable.spider)
-
+    val scorpionbitmap=ImageBitmap.imageResource(R.drawable.scorpion)
 
     var joystickcenter = with(localdensity){Offset(320.dp.toPx(),660.dp.toPx())}
     var thumboffset by remember{mutableStateOf(joystickcenter)}
@@ -162,7 +163,6 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
     val mushroomlist=gameViewModel.mushroom_list
     val snakelist=gameViewModel.snake_list
 
-    var mushroomdummy by remember{mutableStateOf(0f)}
     val bgcolor= colorResource(R.color.ivory)
 
 
@@ -176,15 +176,19 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
     LaunchedEffect(originalguntopleft) {
         gameViewModel.UpdateGunPosition(originalguntopleft)
     }
-    LaunchedEffect(mushroomdummy) {
-        gameViewModel.AddMushrooms(
-            leastx = 0f,
-            maxx = (canvas_size.width - mushroombitmap.width).toFloat(),
-            leasty = mushroombitmap.height.toFloat()*2f,
-            maxy = (originalguntopleft.y - with(localdensity) { 70.dp.toPx() } - mushroombitmap.height),
-            mushroomwidth = mushroombitmap.width.toFloat(),
-            mushroomheight = mushroombitmap.height.toFloat()
-        )
+    LaunchedEffect(gameViewModel.should_spawn_mushrooms) {
+        if(gameViewModel.should_spawn_mushrooms) {
+            gameViewModel.AddMushrooms(
+                mushroomType = MushroomType.NORMAL,
+                leastx = 0f,
+                maxx = (canvas_size.width - mushroombitmap.width).toFloat(),
+                leasty = mushroombitmap.height.toFloat() * 2f,
+                maxy = (originalguntopleft.y - with(localdensity) { 70.dp.toPx() } - mushroombitmap.height),
+                mushroomwidth = mushroombitmap.width.toFloat(),
+                mushroomheight = mushroombitmap.height.toFloat()
+            )
+            gameViewModel.should_spawn_mushrooms = false
+        }
     }
     LaunchedEffect(gameViewModel.initial_snakes) {
         Log.d("initialsnakes","${gameViewModel.initial_snakes}")
@@ -204,19 +208,33 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
         val possibleoffsets= listOf(Offset(0f, joystickcenter.y - gameViewModel.joyStick.outerradius * 3f),Offset(canvas_size.width/2f, joystickcenter.y - gameViewModel.joyStick.outerradius * 3f),Offset((canvas_size.width-spiderbitmap.width).toFloat(), joystickcenter.y - gameViewModel.joyStick.outerradius * 3f))
         if (gameViewModel.should_spawn_spider && gameViewModel.spider_list.isEmpty()) {
             val random_start_position=possibleoffsets.random()
-
             gameViewModel.SetSpiderStartPosition(random_start_position)
             gameViewModel.AddSpider(movement = GetRandomMovementBasedOnIdx(idx=possibleoffsets.indexOf(random_start_position)),
                 bitmap_width = spiderbitmap.width.toFloat(),
                 bitmap_height = spiderbitmap.height.toFloat())
         }
     }
+
     gameViewModel.SetGunBoundaries(
         leastx = 0f,
         maxx=canvas_size.width.toFloat()-gunbitmap.width.toFloat(),
         leasty = originalguntopleft.y- with(localdensity){40.dp.toPx()},
         maxy=canvas_size.height.toFloat()-gunbitmap.height.toFloat()
     )
+    LaunchedEffect(gameViewModel.should_spawn_scorpion) {
+        val possibleoffsets= mushroomlist
+            .filter { it.mushroomType!=MushroomType.POISON }
+            .map { Offset(0f,it.mushroom_position.y) }
+        Log.d("possibleoffsets","$possibleoffsets")
+        if(gameViewModel.should_spawn_scorpion && gameViewModel.scorpion_list.isEmpty()){
+            var random_start_pos=possibleoffsets.random()
+            gameViewModel.SetScorpionStartPosition(random_start_pos)
+            gameViewModel.AddScorpion(
+                bitmap_width =scorpionbitmap.width.toFloat(),
+                bitmap_height = scorpionbitmap.height.toFloat()
+            )
+        }
+    }
     if(isdragging && !gameViewModel.isgyro){
         thumbmoveoffset=thumboffset-joystickcenter
         newgunoffset=gameViewModel.gun_position+ thumbmoveoffset * velocity_factor
@@ -292,7 +310,7 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
         gameViewModel.MoveBullets()
         mushroomlist.forEach { mushroom->
             drawImage(
-                image = mushroombitmap,
+                image = if(mushroom.mushroomType==MushroomType.NORMAL) mushroombitmap else poisonmushroombitmap,
                 topLeft = mushroom.mushroom_position,
                 alpha = mushroom.health/5f
             )
@@ -302,7 +320,7 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
             snake.node_lst.forEach { node->
                 if(node.hierarchy==SnakeHierarchy.HEAD){
                     rotate(
-                        degrees = if (node.movement == Movement.RIGHT) 180f else 0f,
+                        degrees = if (node.movement == Movement.RIGHT) 180f else if(node.movement==Movement.LEFT) 0f else -90f,
                         pivot = Offset(node.node_position.value.x + snake.bitmap_width/2f,node.node_position.value.y + snake.bitmap_height/2f),
                     ) {
                         drawImage(image = snakeheadbitmap, topLeft = node.node_position.value)
@@ -326,6 +344,15 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
             )
         }
         gameViewModel.MoveSpiders(leastx = 0f, maxx = canvas_size.width.toFloat(), leasty = 0f, maxy = canvas_size.height.toFloat())
+
+        Log.d("scorpionlist","${gameViewModel.scorpion_list}")
+        gameViewModel.scorpion_list.forEach{scorpion ->
+            drawImage(
+                image = scorpionbitmap,
+                topLeft = scorpion.scorpion_position.value
+            )
+        }
+        gameViewModel.MoveScorpions(maxx = canvas_size.width.toFloat())
     }
 
     Box(modifier=Modifier
@@ -343,6 +370,7 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
         .background(Color.Transparent) // makes it hit-testable
         .clickable {
             Log.d("detectingtap", "attack button clicked")
+            gameViewModel.PlayGunShot()
             gameViewModel.AddBullet(
                 start_position = gameViewModel.gun_position+Offset((gunbitmap.width-bulletbitap.width)/2f,-bulletbitap.height.toFloat()),
                 width = gunbitmap.width.toFloat(),
@@ -455,12 +483,14 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit,gam
                         .clip(CircleShape)
                         .clickable {
                             gameViewModel.PlayButtonClick()
+
                             val prefs= context.getSharedPreferences(
                                 shared_pref_filename, Context.MODE_PRIVATE)
                             val edit=prefs.edit()
                             edit.putFloat("bgvolume",bgsliderpos)
                             edit.putFloat("screenbrightness",brightnesssliderpos)
                             edit.apply()
+
                             onnavigateup()
                         }
                 )
@@ -473,12 +503,14 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit,gam
                         .clip(CircleShape)
                         .clickable {
                             gameViewModel.PlayButtonClick()
+
                             val prefs= context.getSharedPreferences(
                                 shared_pref_filename, Context.MODE_PRIVATE)
                             val edit=prefs.edit()
                             edit.putFloat("bgvolume",bgsliderpos)
                             edit.putFloat("screenbrightness",brightnesssliderpos)
                             edit.apply()
+
                             onreset()
                         }
                 )
@@ -491,12 +523,14 @@ fun PauseDialog(onnavigateup: () -> Unit,onreset:() ->Unit,onresume:()->Unit,gam
                         .clip(CircleShape)
                         .clickable {
                             gameViewModel.PlayButtonClick()
+
                             val prefs= context.getSharedPreferences(
                                 shared_pref_filename, Context.MODE_PRIVATE)
                             val edit=prefs.edit()
                             edit.putFloat("bgvolume",bgsliderpos)
                             edit.putFloat("screenbrightness",brightnesssliderpos)
                             edit.apply()
+
                             onresume()
                         }
                 )
@@ -711,10 +745,9 @@ fun GyroGun(gameViewModel: GameViewModel) {
                 )
 
             }
-
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-        }
 
+        }
         Log.d("boundaryvalues","${gameViewModel.gun_leastx},${gameViewModel.gun_maxx},${gameViewModel.gun_leasty},${gameViewModel.gun_maxy}")
         sensorManager.registerListener(listener, gyroscope, SensorManager.SENSOR_DELAY_GAME)
         onDispose {

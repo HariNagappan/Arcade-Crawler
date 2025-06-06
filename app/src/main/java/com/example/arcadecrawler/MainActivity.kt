@@ -170,7 +170,7 @@ fun StartScreen(onsettingclick:() ->Unit,onplayclick:() ->Unit,gameViewModel: Ga
     SetPreviousGunMovement(context=context,gameViewModel=gameViewModel)
     SetPreviousGyroSensitivity(context=context,gameViewModel=gameViewModel)
     if(gameViewModel.bgplayer==null) {
-        gameViewModel.SetMediaPlayer(context = context)
+        gameViewModel.SetMusicPlayers(context = context)
     }
     Log.d("arcadething","yess")
     if(gameViewModel.IsBgPlayerInitialized() && !gameViewModel.bgplayer!!.isPlaying) {
