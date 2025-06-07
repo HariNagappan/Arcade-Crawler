@@ -88,38 +88,41 @@ fun ArcadeSettings(onnavigateup:()->Unit,gameViewModel: GameViewModel){
             )
         }
         Spacer(modifier=Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically){
-            Text(
-                text="Gun Speed: ",
-                fontSize = 16.sp,
-                fontWeight= FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                color = colorResource(R.color.dark_gold),
-                modifier=Modifier.weight(1f)
-            )
-            speed_options.forEachIndexed{idx, speed->
-                val isSelected = (idx == gunselectedoption)
+        AnimatedVisibility(!isgyro) {
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = speed.name,
-                    fontWeight= FontWeight.Bold,
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .border(
-                            width = if (isSelected) 2.dp else 0.dp,
-                            color = if(isSelected) colorResource(R.color.mint) else Color.Transparent,
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                        .clickable {
-                            gameViewModel.PlayButtonClick()
-                            gunselectedoption = idx
-                        }
-                        .padding(vertical = 4.dp, horizontal = 8.dp),
-                    color = colorResource(R.color.coral)
+                    text = "Gun Speed: ",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    color = colorResource(R.color.dark_gold),
+                    modifier = Modifier.weight(1f)
                 )
+                speed_options.forEachIndexed { idx, speed ->
+                    val isSelected = (idx == gunselectedoption)
+                    Text(
+                        text = speed.name,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .border(
+                                width = if (isSelected) 2.dp else 0.dp,
+                                color = if (isSelected) colorResource(R.color.mint) else Color.Transparent,
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                            .clickable {
+                                gameViewModel.PlayButtonClick()
+                                gunselectedoption = idx
+                            }
+                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                        color = colorResource(R.color.coral)
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(48.dp))
         }
-        Spacer(modifier=Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically){
             Text(
                 text="Bullet Speed: ",
