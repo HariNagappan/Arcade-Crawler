@@ -243,7 +243,7 @@ fun MainCanvas(gameViewModel: GameViewModel,modifier:Modifier){
     }
     gameViewModel.SetJoystickThumbPosition(thumboffset)
 
-    SetBrightness(context=context, newbrightness = gameViewModel.cur_brightness)
+    SetBrightness(context=context, newbrightness = gameViewModel.gameplay_brightness)
     Canvas(modifier=Modifier
         .then(modifier)
         .onSizeChanged { size:IntSize->

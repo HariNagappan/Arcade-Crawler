@@ -98,7 +98,8 @@ class GameViewModel: ViewModel() {
     val all_short_sounds= mutableMapOf<String,Int>()
     var cur_volume by mutableStateOf(1f)
 
-    var cur_brightness by mutableStateOf(0.7f)
+    var gameplay_brightness by mutableStateOf(0.7f)
+    var homescreen_brightness by mutableStateOf(1f)
 
     var iswin by mutableStateOf(false)
     var islost by mutableStateOf(false)
@@ -792,8 +793,8 @@ class GameViewModel: ViewModel() {
        }
     }
 
-    fun SetBrightness(newbrightness:Float){
-        cur_brightness=newbrightness
+    fun SetGameplayBrightness(newbrightness:Float){
+        gameplay_brightness=newbrightness
     }
 
     fun PauseGame(){
